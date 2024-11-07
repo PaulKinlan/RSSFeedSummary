@@ -11,31 +11,30 @@ resend.api_key = os.environ.get('RESEND_API_KEY')
 logger = logging.getLogger(__name__)
 
 def send_email_for_user(user, subject, html_content):
-    """Send email using Resend API"""
     try:
         params = {
-            "from": "RSS Monitor <rss@tldr.express>",
+            "from": "rss@tldr.express",
             "to": [user.email],
             "subject": subject,
             "html": html_content
         }
         
-        logger.info(f"Attempting to send email to {user.email}")
+        logger.info(f"Sending email to {user.email}")
         response = resend.Emails.send(params)
-        success = bool(response and hasattr(response, 'id'))
         
-        if success:
-            logger.info(f"Email sent successfully to {user.email}")
+        # Resend API returns a dictionary with 'id' on success
+        if isinstance(response, dict) and 'id' in response:
+            logger.info(f"Email sent successfully to {user.email} (ID: {response['id']})")
+            return True
         else:
-            logger.error(f"Failed to send email to {user.email}")
-        
-        return success
+            logger.warning(f"Unexpected response format from Resend API: {response}")
+            return False
+            
     except Exception as e:
         logger.error(f"Error sending email to {user.email}: {str(e)}")
         return False
 
 def send_verification_email(user, token):
-    """Send email verification link to user"""
     try:
         logger.info(f"Preparing verification email for {user.email}")
         html_content = render_template(
@@ -44,7 +43,6 @@ def send_verification_email(user, token):
             token=token
         )
         
-        logger.info("Sending email via Resend API")
         result = send_email_for_user(
             user,
             "Verify Your Email Address - RSS Monitor",
@@ -52,14 +50,14 @@ def send_verification_email(user, token):
         )
         
         if result:
-            logger.info("Verification email sent successfully")
+            logger.info(f"Verification email sent successfully to {user.email}")
+            return True
         else:
-            logger.error("Failed to send verification email")
-        
-        return result
-        
+            logger.warning(f"Could not send verification email to {user.email}")
+            return False
+            
     except Exception as e:
-        logger.error(f"Error sending verification email: {str(e)}")
+        logger.error(f"Error preparing verification email: {str(e)}")
         return False
 
 def send_daily_digest():
@@ -79,17 +77,23 @@ def send_daily_digest():
         ).all()
         
         if articles:
-            html_content = render_template(
-                'email/daily_digest.html',
-                user=user,
-                articles=articles
-            )
-            
-            send_email_for_user(
-                user,
-                "Your Daily RSS Feed Digest",
-                html_content
-            )
+            try:
+                html_content = render_template(
+                    'email/daily_digest.html',
+                    user=user,
+                    articles=articles
+                )
+                
+                if send_email_for_user(
+                    user,
+                    "Your Daily RSS Feed Digest",
+                    html_content
+                ):
+                    logger.info(f"Daily digest sent successfully to {user.email}")
+                else:
+                    logger.warning(f"Failed to send daily digest to {user.email}")
+            except Exception as e:
+                logger.error(f"Error preparing daily digest for {user.email}: {str(e)}")
 
 def send_weekly_digest():
     """Send weekly digest emails to users who have enabled them"""
@@ -108,14 +112,20 @@ def send_weekly_digest():
         ).all()
         
         if articles:
-            html_content = render_template(
-                'email/daily_digest.html',  # We can reuse the same template
-                user=user,
-                articles=articles
-            )
-            
-            send_email_for_user(
-                user,
-                "Your Weekly RSS Feed Digest",
-                html_content
-            )
+            try:
+                html_content = render_template(
+                    'email/daily_digest.html',  # We can reuse the same template
+                    user=user,
+                    articles=articles
+                )
+                
+                if send_email_for_user(
+                    user,
+                    "Your Weekly RSS Feed Digest",
+                    html_content
+                ):
+                    logger.info(f"Weekly digest sent successfully to {user.email}")
+                else:
+                    logger.warning(f"Failed to send weekly digest to {user.email}")
+            except Exception as e:
+                logger.error(f"Error preparing weekly digest for {user.email}: {str(e)}")
