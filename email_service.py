@@ -1,12 +1,14 @@
 import os
 import resend
+import logging
 from flask import render_template
 from app import db
 from models import User, Article, Feed
 from datetime import datetime, timedelta
 
-# Configure Resend
+# Configure Resend and logging
 resend.api_key = os.environ.get('RESEND_API_KEY')
+logger = logging.getLogger(__name__)
 
 def send_email_for_user(user, subject, html_content):
     """Send email using Resend API"""
@@ -18,25 +20,47 @@ def send_email_for_user(user, subject, html_content):
             "html": html_content
         }
         
+        logger.info(f"Attempting to send email to {user.email}")
         response = resend.Emails.send(params)
-        return True if response.id else False
+        success = bool(response and hasattr(response, 'id'))
+        
+        if success:
+            logger.info(f"Email sent successfully to {user.email}")
+        else:
+            logger.error(f"Failed to send email to {user.email}")
+        
+        return success
     except Exception as e:
-        print(f"Error sending email to {user.email}: {str(e)}")
+        logger.error(f"Error sending email to {user.email}: {str(e)}")
         return False
 
 def send_verification_email(user, token):
     """Send email verification link to user"""
-    html_content = render_template(
-        'email/verify_email.html',
-        user=user,
-        token=token
-    )
-    
-    return send_email_for_user(
-        user,
-        "Verify Your Email Address - RSS Monitor",
-        html_content
-    )
+    try:
+        logger.info(f"Preparing verification email for {user.email}")
+        html_content = render_template(
+            'email/verify_email.html',
+            user=user,
+            token=token
+        )
+        
+        logger.info("Sending email via Resend API")
+        result = send_email_for_user(
+            user,
+            "Verify Your Email Address - RSS Monitor",
+            html_content
+        )
+        
+        if result:
+            logger.info("Verification email sent successfully")
+        else:
+            logger.error("Failed to send verification email")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error sending verification email: {str(e)}")
+        return False
 
 def send_daily_digest():
     """Send daily digest emails to users who have enabled them"""

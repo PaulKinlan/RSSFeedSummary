@@ -11,6 +11,9 @@ from werkzeug.security import generate_password_hash
 from markdown import markdown
 import bleach
 from email_service import send_verification_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 def convert_markdown_to_html(text):
     # Convert markdown to HTML and sanitize
@@ -45,34 +48,47 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        if User.query.filter_by(username=request.form['username']).first():
-            flash('Username already exists')
+        try:
+            if User.query.filter_by(username=request.form['username']).first():
+                flash('Username already exists')
+                return redirect(url_for('register'))
+            
+            if User.query.filter_by(email=request.form['email']).first():
+                flash('Email already registered')
+                return redirect(url_for('register'))
+            
+            user = User(
+                username=request.form['username'],
+                email=request.form['email'],
+                email_verified=False
+            )
+            user.set_password(request.form['password'])
+            
+            # Generate verification token
+            logger.info(f"Generating verification token for user {user.username}")
+            token = user.generate_verification_token()
+            
+            db.session.add(user)
+            db.session.commit()
+            logger.info(f"User {user.username} added to database with token: {token[:10]}...")
+            
+            # Send verification email
+            logger.info(f"Sending verification email to {user.email}")
+            if send_verification_email(user, token):
+                logger.info("Verification email sent successfully")
+                flash('Registration successful! Please check your email to verify your account.')
+            else:
+                logger.error("Failed to send verification email")
+                flash('Registration successful but there was an error sending the verification email. Please contact support.')
+            
+            return redirect(url_for('login'))
+            
+        except Exception as e:
+            logger.error(f"Error during registration: {str(e)}")
+            db.session.rollback()
+            flash('An error occurred during registration. Please try again.')
             return redirect(url_for('register'))
-        
-        if User.query.filter_by(email=request.form['email']).first():
-            flash('Email already registered')
-            return redirect(url_for('register'))
-        
-        user = User(
-            username=request.form['username'],
-            email=request.form['email'],
-            email_verified=False
-        )
-        user.set_password(request.form['password'])
-        
-        # Generate verification token
-        token = user.generate_verification_token()
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        # Send verification email
-        if send_verification_email(user, token):
-            flash('Registration successful! Please check your email to verify your account.')
-        else:
-            flash('Registration successful but there was an error sending the verification email. Please contact support.')
-        
-        return redirect(url_for('login'))
+            
     return render_template('register.html')
 
 @app.route('/verify-email/<token>')
