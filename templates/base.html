@@ -60,14 +60,19 @@
         {% block content %}{% endblock %}
     </div>
 
-    <!-- Load scripts at the end of body -->
+    <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- Feather Icons -->
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <!-- Initialize Feather Icons after page load -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            feather.replace();
+        window.addEventListener('load', function() {
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
         });
     </script>
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

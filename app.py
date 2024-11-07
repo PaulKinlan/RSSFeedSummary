@@ -38,12 +38,11 @@ with app.app_context():
     import routes
     
     try:
-        # Drop all tables and recreate them
-        db.drop_all()
+        # Create tables only if they don't exist
         db.create_all()
-        print("Database tables created successfully")
+        print("Database tables initialized successfully")
     except Exception as e:
-        print(f"Error creating database tables: {e}")
+        print(f"Error initializing database tables: {e}")
         raise
 
     # Start the scheduler
