@@ -2,8 +2,8 @@ import feedparser
 from datetime import datetime
 import logging
 from app import db, scheduler
-from models import Feed, Article, User
-from ai_summarizer import generate_summary
+from models import Feed, Article, User, Tag, Category
+from ai_summarizer import generate_summary, get_or_create_tag, get_or_create_category
 from email_service import send_daily_digest
 from urllib.parse import urlparse
 
@@ -72,9 +72,23 @@ def process_feeds(feeds=None):
                                 entry.get('description', ''),
                                 user
                             )
+                            
                             if summary_result:
                                 article.summary = summary_result['summary']
                                 article.critique = summary_result.get('critique')
+                                
+                                # Process tags
+                                if 'tags' in summary_result:
+                                    for tag_name in summary_result['tags']:
+                                        tag = get_or_create_tag(tag_name)
+                                        article.tags.append(tag)
+                                
+                                # Process categories
+                                if 'categories' in summary_result:
+                                    for category_name in summary_result['categories']:
+                                        category = get_or_create_category(category_name)
+                                        article.categories.append(category)
+                                
                                 article.processed = True
                                 processed_count += 1
                             

@@ -35,6 +35,30 @@ class Feed(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     articles = db.relationship('Article', backref='feed', lazy=True, cascade='all, delete-orphan')
 
+# Association tables for many-to-many relationships
+article_tags = db.Table('article_tags',
+    db.Column('article_id', db.Integer, db.ForeignKey('article.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+)
+
+article_categories = db.Table('article_categories',
+    db.Column('article_id', db.Integer, db.ForeignKey('article.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('category.id'), primary_key=True)
+)
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    articles = db.relationship('Article', secondary=article_tags, backref=db.backref('tags', lazy='dynamic'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.String(200))
+    articles = db.relationship('Article', secondary=article_categories, backref=db.backref('categories', lazy='dynamic'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class Article(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)

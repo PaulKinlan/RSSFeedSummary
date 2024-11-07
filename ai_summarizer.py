@@ -1,11 +1,27 @@
 import os
 import google.generativeai as genai
 from typing import Optional, Dict
-from models import User
+from models import User, Tag, Category, db
 
 # Configure Gemini API
 genai.configure(api_key=os.environ['GOOGLE_GEMINI_API_KEY'])
 model = genai.GenerativeModel('gemini-pro')
+
+def get_or_create_tag(name: str) -> Tag:
+    """Get existing tag or create a new one"""
+    tag = Tag.query.filter_by(name=name.lower().strip()).first()
+    if not tag:
+        tag = Tag(name=name.lower().strip())
+        db.session.add(tag)
+    return tag
+
+def get_or_create_category(name: str, description: str = None) -> Category:
+    """Get existing category or create a new one"""
+    category = Category.query.filter_by(name=name.lower().strip()).first()
+    if not category:
+        category = Category(name=name.lower().strip(), description=description)
+        db.session.add(category)
+    return category
 
 def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str, str]]:
     try:
@@ -20,7 +36,7 @@ def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str,
         focus_areas = user.focus_areas.split(',') if user.focus_areas else ['main points', 'key findings']
         focus_areas_str = '\n'.join(f'   - {area.strip()}' for area in focus_areas)
         
-        # Prepare the prompt
+        # Prepare the prompt for summary, critique, tags, and categories
         prompt = f"""
         Article Title: {title}
         Content: {content}
@@ -28,41 +44,59 @@ def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str,
         Please provide:
         1. A {length_guide} summary focusing on:
 {focus_areas_str}
+
+        2. Generate up to 5 relevant tags (single words or short phrases) that best describe the content
+        
+        3. Categorize the content into 1-2 broad categories from this list:
+           - Technology
+           - Business
+           - Science
+           - Health
+           - Politics
+           - Culture
+           - Education
+           - Environment
+           
+        Format the response as:
+        Summary: [summary text]
+        Tags: [comma-separated tags]
+        Categories: [comma-separated categories]
         """
         
         if user.include_critique:
-            prompt += """
-        2. A brief critique of the content, considering:
-           - Objectivity
-           - Supporting evidence
-           - Potential biases
-        
-        Format the response as:
-        Summary: [summary text]
-        Critique: [critique text]
-        """
-        else:
-            prompt += "\nFormat the response as:\nSummary: [summary text]"
+            prompt += "\nCritique: [critique analyzing objectivity, evidence, and potential biases]"
         
         response = model.generate_content(prompt)
         response_text = response.text
         
         # Parse the response
-        if user.include_critique:
-            parts = response_text.split('Critique:')
-            summary = parts[0].replace('Summary:', '').strip()
-            critique = parts[1].strip() if len(parts) > 1 else "No critique available"
-            
-            return {
-                'summary': summary,
-                'critique': critique
-            }
-        else:
-            summary = response_text.replace('Summary:', '').strip()
-            return {
-                'summary': summary,
-                'critique': None
-            }
+        parts = {}
+        current_section = None
+        
+        for line in response_text.split('\n'):
+            line = line.strip()
+            if line:
+                if line.startswith('Summary:'):
+                    current_section = 'summary'
+                    parts[current_section] = line.replace('Summary:', '').strip()
+                elif line.startswith('Tags:'):
+                    current_section = 'tags'
+                    parts[current_section] = [tag.strip() for tag in line.replace('Tags:', '').strip().split(',')]
+                elif line.startswith('Categories:'):
+                    current_section = 'categories'
+                    parts[current_section] = [cat.strip() for cat in line.replace('Categories:', '').strip().split(',')]
+                elif line.startswith('Critique:'):
+                    current_section = 'critique'
+                    parts[current_section] = line.replace('Critique:', '').strip()
+                elif current_section:
+                    parts[current_section] = parts.get(current_section, '') + ' ' + line
+        
+        return {
+            'summary': parts.get('summary', ''),
+            'critique': parts.get('critique') if user.include_critique else None,
+            'tags': parts.get('tags', []),
+            'categories': parts.get('categories', [])
+        }
             
     except Exception as e:
         print(f"Error generating summary: {str(e)}")
