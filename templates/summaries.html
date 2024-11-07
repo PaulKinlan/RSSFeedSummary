@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Article Summaries</h2>
+
+{% if articles %}
+<div class="row">
+    {% for article in articles %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">{{ article.title }}</h4>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    From: {{ article.feed.title }} | 
+                    Published: {{ article.published_date.strftime('%Y-%m-%d %H:%M') if article.published_date else 'Unknown' }}
+                </h6>
+                
+                <div class="mt-3">
+                    <h5>Summary</h5>
+                    <p class="card-text">{{ article.summary }}</p>
+                </div>
+                
+                <div class="mt-3">
+                    <h5>Critique</h5>
+                    <p class="card-text">{{ article.critique }}</p>
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{{ article.url }}" target="_blank" class="btn btn-primary">
+                        Read Original Article
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    No processed articles yet. Add some feeds and check back later!
+</div>
+{% endif %}
+{% endblock %}

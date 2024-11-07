@@ -1,0 +1,33 @@
+/* Additional custom styles */
+.card {
+    margin-bottom: 1rem;
+}
+
+.feed-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.summary-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.critique-section {
+    background-color: var(--bs-dark);
+    padding: 1rem;
+    border-radius: 0.25rem;
+    margin-top: 1rem;
+}
+
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    background-color: var(--bs-dark);
+}
+
+.text-muted {
+    color: var(--bs-secondary) !important;
+}
