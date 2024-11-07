@@ -4,6 +4,8 @@ from app import app, db
 from models import User, Feed, Article
 from feed_processor import schedule_feed_processing
 from datetime import datetime
+import feedparser
+from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash
 
 @app.route('/')
@@ -64,8 +66,14 @@ def dashboard():
 @login_required
 def manage_feeds():
     if request.method == 'POST':
+        feed_url = request.form['url']
+        # Try to get feed title immediately
+        parsed = feedparser.parse(feed_url)
+        title = parsed.feed.get('title', urlparse(feed_url).netloc)
+        
         new_feed = Feed(
-            url=request.form['url'],
+            url=feed_url,
+            title=title,  # Set initial title
             user_id=current_user.id
         )
         db.session.add(new_feed)
