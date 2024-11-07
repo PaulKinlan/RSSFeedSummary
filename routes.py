@@ -4,6 +4,7 @@ from app import app, db
 from models import User, Feed, Article
 from feed_processor import process_feeds
 from datetime import datetime
+from werkzeug.security import generate_password_hash
 
 @app.route('/')
 def index():
@@ -38,6 +39,17 @@ def register():
         login_user(user)
         return redirect(url_for('dashboard'))
     return render_template('register.html')
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        current_user.email_notifications_enabled = 'email_notifications_enabled' in request.form
+        current_user.email_frequency = request.form['email_frequency']
+        db.session.commit()
+        flash('Settings updated successfully')
+        return redirect(url_for('settings'))
+    return render_template('settings.html')
 
 @app.route('/dashboard')
 @login_required

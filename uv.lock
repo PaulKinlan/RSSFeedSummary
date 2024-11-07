@@ -692,6 +692,7 @@ dependencies = [
     { name = "flask-sqlalchemy" },
     { name = "google-generativeai" },
     { name = "psycopg2-binary" },
+    { name = "resend" },
 ]
 
 [package.metadata]
@@ -705,6 +706,7 @@ requires-dist = [
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "google-generativeai", specifier = ">=0.8.3" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "resend", specifier = ">=2.4.0" },
 ]
 
 [[package]]
@@ -720,6 +722,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928 },
+]
+
+[[package]]
+name = "resend"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e6/50/6ed3bd29137c03f97e71cf0f35796a138ff22b9a2e7e2385c7883fbe0673/resend-2.4.0.tar.gz", hash = "sha256:0f2b06c9afdc5c71f2d2f828dcd6680077b0ef3a3d7420ec37d150857b67a095", size = 11706 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/d1/7d06d0aa061d2954843adcf06e119f7dc20aa7139237d6fdf03bd2c986a6/resend-2.4.0-py2.py3-none-any.whl", hash = "sha256:92b674e4877bca9b65c38bb06b5b29a509f2fa878f147b58872afe380738e448", size = 17201 },
 ]
 
 [[package]]

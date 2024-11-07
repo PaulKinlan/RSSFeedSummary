@@ -10,11 +10,21 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     feeds = db.relationship('Feed', backref='user', lazy=True)
     
+    # Email notification settings
+    email_notifications_enabled = db.Column(db.Boolean, default=True)
+    email_frequency = db.Column(db.String(10), default='daily')  # daily, weekly, never
+    
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def set_smtp_password(self, password):
+        self.smtp_password = generate_password_hash(password)
+    
+    def check_smtp_password(self, password):
+        return check_password_hash(self.smtp_password, password)
 
 class Feed(db.Model):
     id = db.Column(db.Integer, primary_key=True)
