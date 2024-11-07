@@ -7,6 +7,18 @@ from datetime import datetime
 import feedparser
 from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash
+from markdown import markdown
+import bleach
+
+def convert_markdown_to_html(text):
+    # Convert markdown to HTML and sanitize
+    allowed_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 
+                   'ul', 'ol', 'li', 'code', 'pre', 'blockquote']
+    allowed_attributes = {'*': ['class']}
+    
+    html = markdown(text)
+    clean_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attributes)
+    return clean_html
 
 @app.route('/')
 def index():
@@ -60,6 +72,12 @@ def dashboard():
     recent_articles = Article.query.join(Feed).filter(
         Feed.user_id == current_user.id
     ).order_by(Article.created_at.desc()).limit(10).all()
+    
+    # Convert markdown to HTML for dashboard summaries
+    for article in recent_articles:
+        if article.summary:
+            article.summary = convert_markdown_to_html(article.summary)
+    
     return render_template('dashboard.html', feeds=feeds, articles=recent_articles)
 
 @app.route('/feeds', methods=['GET', 'POST'])
@@ -106,6 +124,14 @@ def summaries():
         Feed.user_id == current_user.id,
         Article.processed == True
     ).order_by(Article.created_at.desc()).all()
+    
+    # Convert markdown to HTML for each article
+    for article in articles:
+        if article.summary:
+            article.summary = convert_markdown_to_html(article.summary)
+        if article.critique:
+            article.critique = convert_markdown_to_html(article.critique)
+    
     return render_template('summaries.html', articles=articles)
 
 @app.route('/logout')
