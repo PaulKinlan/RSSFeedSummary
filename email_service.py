@@ -12,7 +12,7 @@ def send_email_for_user(user, subject, html_content):
     """Send email using Resend API"""
     try:
         params = {
-            "from": "RSS Monitor <rss@yourdomain.com>",
+            "from": "RSS Monitor <rss@tldr.express>",
             "to": [user.email],
             "subject": subject,
             "html": html_content
