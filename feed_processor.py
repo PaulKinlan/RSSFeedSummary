@@ -24,29 +24,23 @@ def process_feeds(feeds=None):
                 logger.info(f"Processing feed: {feed.url}")
                 parsed_feed = feedparser.parse(feed.url)
                 
-                # Update feed status first
-                if hasattr(parsed_feed, 'status') and parsed_feed.status != 200:
-                    feed.status = 'error'
-                    feed.error_message = f"HTTP Error {parsed_feed.status}"
-                    db.session.commit()
-                    continue
+                # Set status to active at the start of successful processing
+                feed.status = 'active'
+                db.session.commit()
                 
-                # Set title and status
+                # Continue with feed processing
                 if hasattr(parsed_feed.feed, 'title'):
                     feed.title = parsed_feed.feed.title
                 else:
                     feed.title = urlparse(feed.url).netloc
                 
                 feed.last_checked = datetime.utcnow()
-                feed.status = 'active'  # Set status to active
-                feed.error_message = None
                 db.session.commit()  # Commit changes immediately
                 
                 # Process entries (limited to 10)
                 entries = parsed_feed.entries[:10]
                 for entry in entries:
                     try:
-                        # Check if article already exists
                         existing = Article.query.filter_by(
                             url=entry.link,
                             feed_id=feed.id
@@ -94,7 +88,29 @@ def schedule_feed_processing(feed_id):
     
     def process_with_context():
         with app.app_context():
-            process_feeds([Feed.query.get(feed_id)])
+            try:
+                feed = Feed.query.get(feed_id)
+                if feed:
+                    # Process the feed
+                    process_feeds([feed])
+                    
+                    # Double-check status update
+                    feed = Feed.query.get(feed_id)  # Refresh from DB
+                    if feed.status == 'pending':
+                        feed.status = 'active'
+                        db.session.commit()
+                        
+            except Exception as e:
+                logger.error(f"Error processing feed {feed_id}: {str(e)}")
+                # Update status to error on failure
+                try:
+                    feed = Feed.query.get(feed_id)
+                    if feed:
+                        feed.status = 'error'
+                        feed.error_message = str(e)
+                        db.session.commit()
+                except:
+                    pass
     
     scheduler.add_job(
         func=process_with_context,
