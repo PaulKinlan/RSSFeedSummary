@@ -43,7 +43,9 @@ def process_feeds(feeds=None):
                 feed.status = 'active'
                 feed.error_message = None
                 
-                for entry in parsed_feed.entries:
+                # Limit to first 10 entries for new feeds
+                entries = parsed_feed.entries[:10]
+                for entry in entries:
                     try:
                         # Check if article already exists
                         existing = Article.query.filter_by(
@@ -64,7 +66,6 @@ def process_feeds(feeds=None):
                                 feed_id=feed.id
                             )
                             
-                            # Generate summary and critique using Gemini
                             summary_result = generate_summary(entry.title, entry.get('description', ''))
                             if summary_result:
                                 article.summary = summary_result['summary']

@@ -25,6 +25,7 @@ def send_email_for_user(user, subject, html_content):
         return False
 
 def send_daily_digest():
+    """Send daily digest emails to users who have enabled them"""
     users = User.query.filter_by(
         email_notifications_enabled=True,
         email_frequency='daily'
@@ -53,6 +54,7 @@ def send_daily_digest():
             )
 
 def send_weekly_digest():
+    """Send weekly digest emails to users who have enabled them"""
     users = User.query.filter_by(
         email_notifications_enabled=True,
         email_frequency='weekly'
