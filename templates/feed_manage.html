@@ -52,10 +52,12 @@
                         <td><a href="{{ feed.url }}" target="_blank">{{ feed.url }}</a></td>
                         <td>{{ feed.last_checked.strftime('%Y-%m-%d %H:%M') if feed.last_checked else 'Never' }}</td>
                         <td>
-                            {% if not feed.last_checked %}
+                            {% if feed.status == 'pending' %}
                             <span class="badge bg-info">Processing...</span>
-                            {% else %}
+                            {% elif feed.status == 'active' %}
                             <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger" title="{{ feed.error_message }}">Error</span>
                             {% endif %}
                         </td>
                         <td>

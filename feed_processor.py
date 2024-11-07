@@ -25,12 +25,20 @@ def process_feeds(feeds=None):
             parsed_feed = feedparser.parse(feed.url)
             
             if hasattr(parsed_feed, 'status') and parsed_feed.status != 200:
-                logger.error(f"Error fetching feed {feed.url}: HTTP {parsed_feed.status}")
+                feed.status = 'error'
+                feed.error_message = f"HTTP Error {parsed_feed.status}"
                 error_count += 1
+                db.session.commit()
                 continue
+            
+            if hasattr(parsed_feed.feed, 'title'):
+                feed.title = parsed_feed.feed.title
+            else:
+                feed.title = urlparse(feed.url).netloc
                 
-            feed.title = parsed_feed.feed.get('title', urlparse(feed.url).netloc)
             feed.last_checked = datetime.utcnow()
+            feed.status = 'active'
+            feed.error_message = None
             
             for entry in parsed_feed.entries:
                 try:
@@ -73,6 +81,9 @@ def process_feeds(feeds=None):
             
         except Exception as e:
             logger.error(f"Error processing feed {feed.url}: {str(e)}")
+            feed.status = 'error'
+            feed.error_message = str(e)
+            db.session.commit()
             error_count += 1
             continue
     

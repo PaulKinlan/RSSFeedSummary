@@ -19,18 +19,14 @@ class User(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-    
-    def set_smtp_password(self, password):
-        self.smtp_password = generate_password_hash(password)
-    
-    def check_smtp_password(self, password):
-        return check_password_hash(self.smtp_password, password)
 
 class Feed(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(500), nullable=False)
     title = db.Column(db.String(200))
     last_checked = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='pending')  # pending, active, error
+    error_message = db.Column(db.Text)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     articles = db.relationship('Article', backref='feed', lazy=True)
 
