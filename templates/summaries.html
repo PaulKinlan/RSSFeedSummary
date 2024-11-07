@@ -17,7 +17,13 @@
                 
                 <div class="mt-3">
                     <h5>Summary</h5>
-                    <p class="card-text">{{ article.summary | safe }}</p>
+                    <p class="card-text">
+                        {% if article.summary %}
+                            {{ article.summary | safe }}
+                        {% else %}
+                            Summary not available
+                        {% endif %}
+                    </p>
                 </div>
                 
                 {% if article.tags.count() > 0 %}
