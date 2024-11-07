@@ -58,8 +58,15 @@ def register():
 @login_required
 def settings():
     if request.method == 'POST':
+        # Update email notification settings
         current_user.email_notifications_enabled = 'email_notifications_enabled' in request.form
         current_user.email_frequency = request.form['email_frequency']
+        
+        # Update summarization preferences
+        current_user.summary_length = request.form['summary_length']
+        current_user.include_critique = 'include_critique' in request.form
+        current_user.focus_areas = request.form['focus_areas']
+        
         db.session.commit()
         flash('Settings updated successfully')
         return redirect(url_for('settings'))
@@ -73,7 +80,6 @@ def dashboard():
         Feed.user_id == current_user.id
     ).order_by(Article.created_at.desc()).limit(10).all()
     
-    # Convert markdown to HTML for dashboard summaries
     for article in recent_articles:
         if article.summary:
             article.summary = convert_markdown_to_html(article.summary)
@@ -85,19 +91,17 @@ def dashboard():
 def manage_feeds():
     if request.method == 'POST':
         feed_url = request.form['url']
-        # Try to get feed title immediately
         parsed = feedparser.parse(feed_url)
         title = parsed.feed.get('title', urlparse(feed_url).netloc)
         
         new_feed = Feed(
             url=feed_url,
-            title=title,  # Set initial title
+            title=title,
             user_id=current_user.id
         )
         db.session.add(new_feed)
         db.session.commit()
         
-        # Schedule async processing of the new feed
         schedule_feed_processing(new_feed.id)
         flash('Feed added successfully. Processing will begin shortly.')
         return redirect(url_for('manage_feeds'))
@@ -125,7 +129,6 @@ def summaries():
         Article.processed == True
     ).order_by(Article.created_at.desc()).all()
     
-    # Convert markdown to HTML for each article
     for article in articles:
         if article.summary:
             article.summary = convert_markdown_to_html(article.summary)

@@ -2,7 +2,7 @@ import feedparser
 from datetime import datetime
 import logging
 from app import db, scheduler
-from models import Feed, Article
+from models import Feed, Article, User
 from ai_summarizer import generate_summary
 from email_service import send_daily_digest
 from urllib.parse import urlparse
@@ -18,13 +18,12 @@ def process_feeds(feeds=None):
     with app.app_context():
         if feeds is None:
             feeds = Feed.query.all()
-            feed_ids = [feed.id for feed in feeds]  # Store IDs instead of objects
+            feed_ids = [feed.id for feed in feeds]
         else:
             feed_ids = [feed.id for feed in feeds]
         
         for feed_id in feed_ids:
             try:
-                # Get a fresh feed object in this transaction
                 feed = Feed.query.get(feed_id)
                 if not feed:
                     continue
@@ -38,6 +37,11 @@ def process_feeds(feeds=None):
                     feed.title = urlparse(feed.url).netloc
                 
                 feed.last_checked = datetime.utcnow()
+                
+                # Get the user object for customized summary generation
+                user = User.query.get(feed.user_id)
+                if not user:
+                    continue
                 
                 # Process entries (limited to 10)
                 entries = parsed_feed.entries[:10]
@@ -63,23 +67,27 @@ def process_feeds(feeds=None):
                                 feed_id=feed.id
                             )
                             
-                            summary_result = generate_summary(entry.title, entry.get('description', ''))
+                            summary_result = generate_summary(
+                                entry.title, 
+                                entry.get('description', ''),
+                                user
+                            )
                             if summary_result:
                                 article.summary = summary_result['summary']
-                                article.critique = summary_result['critique']
+                                article.critique = summary_result.get('critique')
                                 article.processed = True
                                 processed_count += 1
                             
                             db.session.add(article)
-                            db.session.commit()  # Commit each article
+                            db.session.commit()
                             logger.info(f"Added new article: {article.title}")
                     
                     except Exception as e:
                         logger.error(f"Error processing entry: {str(e)}")
                         continue
                 
-                # Update feed status in a new transaction
-                feed = Feed.query.get(feed_id)  # Get fresh feed object
+                # Update feed status
+                feed = Feed.query.get(feed_id)
                 if feed and processed_count > 0:
                     feed.status = 'active'
                     feed.error_message = None
@@ -88,7 +96,7 @@ def process_feeds(feeds=None):
                 
             except Exception as e:
                 logger.error(f"Error processing feed {feed_id}: {str(e)}")
-                feed = Feed.query.get(feed_id)  # Get fresh feed object
+                feed = Feed.query.get(feed_id)
                 if feed:
                     feed.status = 'error'
                     feed.error_message = str(e)

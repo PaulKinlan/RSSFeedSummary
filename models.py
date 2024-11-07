@@ -14,6 +14,11 @@ class User(UserMixin, db.Model):
     email_notifications_enabled = db.Column(db.Boolean, default=True)
     email_frequency = db.Column(db.String(10), default='daily')  # daily, weekly, never
     
+    # Summarization preferences
+    summary_length = db.Column(db.String(10), default='medium')  # short, medium, long
+    include_critique = db.Column(db.Boolean, default=True)
+    focus_areas = db.Column(db.String(200), default='main points, key findings')  # comma-separated focus areas
+    
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     

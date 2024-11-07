@@ -2,11 +2,14 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4">Email Notification Settings</h2>
+    <h2 class="mb-4">User Settings</h2>
     
     <div class="row">
         <div class="col-md-8">
-            <div class="card">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Email Notification Settings</h3>
+                </div>
                 <div class="card-body">
                     <form method="POST">
                         <div class="mb-3">
@@ -26,6 +29,39 @@
                                 <option value="weekly" {% if current_user.email_frequency == 'weekly' %}selected{% endif %}>Weekly</option>
                                 <option value="never" {% if current_user.email_frequency == 'never' %}selected{% endif %}>Never</option>
                             </select>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h3 class="mb-3">Summarization Preferences</h3>
+
+                        <div class="mb-3">
+                            <label for="summary_length" class="form-label">Summary Length</label>
+                            <select class="form-select" id="summary_length" name="summary_length">
+                                <option value="short" {% if current_user.summary_length == 'short' %}selected{% endif %}>Short (1-2 sentences)</option>
+                                <option value="medium" {% if current_user.summary_length == 'medium' %}selected{% endif %}>Medium (3-4 sentences)</option>
+                                <option value="long" {% if current_user.summary_length == 'long' %}selected{% endif %}>Long (5+ sentences)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="include_critique" 
+                                       name="include_critique" {% if current_user.include_critique %}checked{% endif %}>
+                                <label class="form-check-label" for="include_critique">
+                                    Include Content Critique
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="focus_areas" class="form-label">Focus Areas</label>
+                            <input type="text" class="form-control" id="focus_areas" name="focus_areas"
+                                   value="{{ current_user.focus_areas }}"
+                                   placeholder="E.g., main points, methodology, conclusions">
+                            <div class="form-text">
+                                Comma-separated areas you want the summary to focus on
+                            </div>
                         </div>
 
                         <button type="submit" class="btn btn-primary">Save Settings</button>
