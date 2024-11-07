@@ -24,21 +24,17 @@ def process_feeds(feeds=None):
                 logger.info(f"Processing feed: {feed.url}")
                 parsed_feed = feedparser.parse(feed.url)
                 
-                # Set status to active at the start of successful processing
-                feed.status = 'active'
-                db.session.commit()
-                
-                # Continue with feed processing
                 if hasattr(parsed_feed.feed, 'title'):
                     feed.title = parsed_feed.feed.title
                 else:
                     feed.title = urlparse(feed.url).netloc
                 
                 feed.last_checked = datetime.utcnow()
-                db.session.commit()  # Commit changes immediately
                 
                 # Process entries (limited to 10)
                 entries = parsed_feed.entries[:10]
+                processed_count = 0
+                
                 for entry in entries:
                     try:
                         existing = Article.query.filter_by(
@@ -64,14 +60,22 @@ def process_feeds(feeds=None):
                                 article.summary = summary_result['summary']
                                 article.critique = summary_result['critique']
                                 article.processed = True
+                                processed_count += 1
                             
                             db.session.add(article)
-                            db.session.commit()  # Commit after each article
+                            db.session.commit()
                             logger.info(f"Added new article: {article.title}")
                     
                     except Exception as e:
                         logger.error(f"Error processing entry: {str(e)}")
                         continue
+                
+                # Only mark as active if we successfully processed at least one article
+                if processed_count > 0:
+                    feed.status = 'active'
+                    feed.error_message = None
+                    db.session.commit()
+                    logger.info(f"Feed {feed.url} marked as active")
                 
             except Exception as e:
                 logger.error(f"Error processing feed {feed.url}: {str(e)}")
@@ -91,18 +95,9 @@ def schedule_feed_processing(feed_id):
             try:
                 feed = Feed.query.get(feed_id)
                 if feed:
-                    # Process the feed
                     process_feeds([feed])
-                    
-                    # Double-check status update
-                    feed = Feed.query.get(feed_id)  # Refresh from DB
-                    if feed.status == 'pending':
-                        feed.status = 'active'
-                        db.session.commit()
-                        
             except Exception as e:
                 logger.error(f"Error processing feed {feed_id}: {str(e)}")
-                # Update status to error on failure
                 try:
                     feed = Feed.query.get(feed_id)
                     if feed:
