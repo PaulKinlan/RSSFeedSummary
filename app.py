@@ -38,6 +38,8 @@ with app.app_context():
     import routes
     
     try:
+        # Drop all tables and recreate them
+        db.drop_all()
         db.create_all()
         print("Database tables created successfully")
     except Exception as e:

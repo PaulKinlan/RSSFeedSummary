@@ -28,7 +28,7 @@ class Feed(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending, active, error
     error_message = db.Column(db.Text)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    articles = db.relationship('Article', backref='feed', lazy=True)
+    articles = db.relationship('Article', backref='feed', lazy=True, cascade='all, delete-orphan')
 
 class Article(db.Model):
     id = db.Column(db.Integer, primary_key=True)
