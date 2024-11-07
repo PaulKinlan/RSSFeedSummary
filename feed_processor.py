@@ -13,37 +13,36 @@ logger = logging.getLogger(__name__)
 
 def process_feeds(feeds=None):
     """Process RSS feeds and generate summaries for new articles."""
-    from app import app  # Import at function level
+    from app import app
     
     with app.app_context():
         if feeds is None:
             feeds = Feed.query.all()
-        
-        processed_count = 0
-        error_count = 0
         
         for feed in feeds:
             try:
                 logger.info(f"Processing feed: {feed.url}")
                 parsed_feed = feedparser.parse(feed.url)
                 
+                # Update feed status first
                 if hasattr(parsed_feed, 'status') and parsed_feed.status != 200:
                     feed.status = 'error'
                     feed.error_message = f"HTTP Error {parsed_feed.status}"
-                    error_count += 1
                     db.session.commit()
                     continue
                 
+                # Set title and status
                 if hasattr(parsed_feed.feed, 'title'):
                     feed.title = parsed_feed.feed.title
                 else:
                     feed.title = urlparse(feed.url).netloc
-                    
-                feed.last_checked = datetime.utcnow()
-                feed.status = 'active'
-                feed.error_message = None
                 
-                # Limit to first 10 entries for new feeds
+                feed.last_checked = datetime.utcnow()
+                feed.status = 'active'  # Set status to active
+                feed.error_message = None
+                db.session.commit()  # Commit changes immediately
+                
+                # Process entries (limited to 10)
                 entries = parsed_feed.entries[:10]
                 for entry in entries:
                     try:
@@ -71,28 +70,23 @@ def process_feeds(feeds=None):
                                 article.summary = summary_result['summary']
                                 article.critique = summary_result['critique']
                                 article.processed = True
-                                processed_count += 1
                             
                             db.session.add(article)
+                            db.session.commit()  # Commit after each article
                             logger.info(f"Added new article: {article.title}")
                     
                     except Exception as e:
-                        logger.error(f"Error processing entry in feed {feed.url}: {str(e)}")
-                        error_count += 1
+                        logger.error(f"Error processing entry: {str(e)}")
                         continue
-                
-                db.session.commit()
                 
             except Exception as e:
                 logger.error(f"Error processing feed {feed.url}: {str(e)}")
                 feed.status = 'error'
                 feed.error_message = str(e)
                 db.session.commit()
-                error_count += 1
                 continue
         
-        logger.info(f"Feed processing complete. Processed {processed_count} new articles. Encountered {error_count} errors.")
-        return processed_count, error_count
+        logger.info(f"Feed processing complete.")
 
 def schedule_feed_processing(feed_id):
     """Schedule immediate processing of a specific feed."""
