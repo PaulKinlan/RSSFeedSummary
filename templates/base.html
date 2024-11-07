@@ -66,21 +66,27 @@
     <!-- Feather Icons -->
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 
-    <!-- Initialize Feather icons with error handling -->
+    <!-- Initialize Feather icons with better error handling and loading check -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add a small delay to ensure script is loaded
-            setTimeout(function() {
-                if (typeof feather !== 'undefined') {
-                    try {
-                        feather.replace();
-                    } catch (e) {
-                        console.error('Error initializing Feather icons:', e);
-                    }
-                } else {
-                    console.error('Feather icons not loaded');
+        function initFeather() {
+            if (typeof feather !== 'undefined') {
+                try {
+                    feather.replace();
+                    console.log('Feather icons initialized successfully');
+                } catch (e) {
+                    console.error('Error initializing Feather icons:', e);
                 }
-            }, 100);
+            } else {
+                console.error('Feather icons script not loaded');
+                // Retry after a short delay
+                setTimeout(initFeather, 100);
+            }
+        }
+
+        // Wait for DOM content and script loading
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add a small delay to ensure script is fully loaded
+            setTimeout(initFeather, 100);
         });
     </script>
 
