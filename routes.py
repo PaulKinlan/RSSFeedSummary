@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
 from models import User, Feed, Article
-from feed_processor import process_feeds
+from feed_processor import schedule_feed_processing
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 
@@ -70,7 +70,10 @@ def manage_feeds():
         )
         db.session.add(new_feed)
         db.session.commit()
-        process_feeds([new_feed])
+        
+        # Schedule async processing of the new feed
+        schedule_feed_processing(new_feed.id)
+        flash('Feed added successfully. Processing will begin shortly.')
         return redirect(url_for('manage_feeds'))
     
     feeds = Feed.query.filter_by(user_id=current_user.id).all()

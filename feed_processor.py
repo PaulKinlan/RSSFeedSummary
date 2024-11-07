@@ -79,6 +79,16 @@ def process_feeds(feeds=None):
     logger.info(f"Feed processing complete. Processed {processed_count} new articles. Encountered {error_count} errors.")
     return processed_count, error_count
 
+def schedule_feed_processing(feed_id):
+    """Schedule immediate processing of a specific feed."""
+    scheduler.add_job(
+        func=process_feeds,
+        args=[[Feed.query.get(feed_id)]],
+        id=f'process_feed_{feed_id}',
+        replace_existing=True
+    )
+    logger.info(f"Scheduled processing for feed ID: {feed_id}")
+
 def schedule_tasks():
     """Schedule periodic tasks for feed processing and email digests."""
     try:
