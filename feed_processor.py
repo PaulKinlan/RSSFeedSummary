@@ -13,14 +13,22 @@ logger = logging.getLogger(__name__)
 
 def process_feeds(feeds=None):
     """Process RSS feeds and generate summaries for new articles."""
-    from app import app
+    from app import app, db
     
     with app.app_context():
         if feeds is None:
             feeds = Feed.query.all()
+            feed_ids = [feed.id for feed in feeds]  # Store IDs instead of objects
+        else:
+            feed_ids = [feed.id for feed in feeds]
         
-        for feed in feeds:
+        for feed_id in feed_ids:
             try:
+                # Get a fresh feed object in this transaction
+                feed = Feed.query.get(feed_id)
+                if not feed:
+                    continue
+                    
                 logger.info(f"Processing feed: {feed.url}")
                 parsed_feed = feedparser.parse(feed.url)
                 
@@ -63,28 +71,31 @@ def process_feeds(feeds=None):
                                 processed_count += 1
                             
                             db.session.add(article)
-                            db.session.commit()
+                            db.session.commit()  # Commit each article
                             logger.info(f"Added new article: {article.title}")
                     
                     except Exception as e:
                         logger.error(f"Error processing entry: {str(e)}")
                         continue
                 
-                # Only mark as active if we successfully processed at least one article
-                if processed_count > 0:
+                # Update feed status in a new transaction
+                feed = Feed.query.get(feed_id)  # Get fresh feed object
+                if feed and processed_count > 0:
                     feed.status = 'active'
                     feed.error_message = None
                     db.session.commit()
                     logger.info(f"Feed {feed.url} marked as active")
                 
             except Exception as e:
-                logger.error(f"Error processing feed {feed.url}: {str(e)}")
-                feed.status = 'error'
-                feed.error_message = str(e)
-                db.session.commit()
+                logger.error(f"Error processing feed {feed_id}: {str(e)}")
+                feed = Feed.query.get(feed_id)  # Get fresh feed object
+                if feed:
+                    feed.status = 'error'
+                    feed.error_message = str(e)
+                    db.session.commit()
                 continue
         
-        logger.info(f"Feed processing complete.")
+        logger.info("Feed processing complete.")
 
 def schedule_feed_processing(feed_id):
     """Schedule immediate processing of a specific feed."""
@@ -92,20 +103,9 @@ def schedule_feed_processing(feed_id):
     
     def process_with_context():
         with app.app_context():
-            try:
-                feed = Feed.query.get(feed_id)
-                if feed:
-                    process_feeds([feed])
-            except Exception as e:
-                logger.error(f"Error processing feed {feed_id}: {str(e)}")
-                try:
-                    feed = Feed.query.get(feed_id)
-                    if feed:
-                        feed.status = 'error'
-                        feed.error_message = str(e)
-                        db.session.commit()
-                except:
-                    pass
+            feed = Feed.query.get(feed_id)
+            if feed:
+                process_feeds([feed])
     
     scheduler.add_job(
         func=process_with_context,
