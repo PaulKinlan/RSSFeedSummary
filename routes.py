@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash
 from markdown import markdown
 import bleach
+from email_service import send_verification_email
 
 def convert_markdown_to_html(text):
     # Convert markdown to HTML and sanitize
@@ -32,6 +33,10 @@ def login():
     if request.method == 'POST':
         user = User.query.filter_by(username=request.form['username']).first()
         if user and user.check_password(request.form['password']):
+            if not user.email_verified:
+                flash('Please verify your email address before logging in.')
+                return redirect(url_for('login'))
+            
             login_user(user)
             return redirect(url_for('dashboard'))
         flash('Invalid username or password')
@@ -44,16 +49,67 @@ def register():
             flash('Username already exists')
             return redirect(url_for('register'))
         
+        if User.query.filter_by(email=request.form['email']).first():
+            flash('Email already registered')
+            return redirect(url_for('register'))
+        
         user = User(
             username=request.form['username'],
-            email=request.form['email']
+            email=request.form['email'],
+            email_verified=False
         )
         user.set_password(request.form['password'])
+        
+        # Generate verification token
+        token = user.generate_verification_token()
+        
         db.session.add(user)
         db.session.commit()
-        login_user(user)
-        return redirect(url_for('dashboard'))
+        
+        # Send verification email
+        if send_verification_email(user, token):
+            flash('Registration successful! Please check your email to verify your account.')
+        else:
+            flash('Registration successful but there was an error sending the verification email. Please contact support.')
+        
+        return redirect(url_for('login'))
     return render_template('register.html')
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    user = User.query.filter_by(verification_token=token).first()
+    
+    if not user:
+        flash('Invalid verification link')
+        return redirect(url_for('login'))
+    
+    if datetime.utcnow() > user.verification_token_expires:
+        flash('Verification link has expired. Please request a new one.')
+        return redirect(url_for('login'))
+    
+    user.email_verified = True
+    user.verification_token = None
+    user.verification_token_expires = None
+    db.session.commit()
+    
+    flash('Email verified successfully! You can now log in.')
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification')
+@login_required
+def resend_verification():
+    if current_user.email_verified:
+        return redirect(url_for('dashboard'))
+    
+    token = current_user.generate_verification_token()
+    db.session.commit()
+    
+    if send_verification_email(current_user, token):
+        flash('Verification email sent! Please check your inbox.')
+    else:
+        flash('Error sending verification email. Please try again later.')
+    
+    return redirect(url_for('login'))
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required

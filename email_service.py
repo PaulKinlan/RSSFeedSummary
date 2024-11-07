@@ -24,6 +24,20 @@ def send_email_for_user(user, subject, html_content):
         print(f"Error sending email to {user.email}: {str(e)}")
         return False
 
+def send_verification_email(user, token):
+    """Send email verification link to user"""
+    html_content = render_template(
+        'email/verify_email.html',
+        user=user,
+        token=token
+    )
+    
+    return send_email_for_user(
+        user,
+        "Verify Your Email Address - RSS Monitor",
+        html_content
+    )
+
 def send_daily_digest():
     """Send daily digest emails to users who have enabled them"""
     users = User.query.filter_by(

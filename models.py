@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from app import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+import secrets
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -9,6 +10,11 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256))
     feeds = db.relationship('Feed', backref='user', lazy=True)
+    
+    # Email verification fields
+    email_verified = db.Column(db.Boolean, default=False)
+    verification_token = db.Column(db.String(100), unique=True)
+    verification_token_expires = db.Column(db.DateTime)
     
     # Email notification settings
     email_notifications_enabled = db.Column(db.Boolean, default=True)
@@ -24,6 +30,11 @@ class User(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def generate_verification_token(self):
+        self.verification_token = secrets.token_urlsafe(32)
+        self.verification_token_expires = datetime.utcnow() + timedelta(hours=24)
+        return self.verification_token
 
 class Feed(db.Model):
     id = db.Column(db.Integer, primary_key=True)
