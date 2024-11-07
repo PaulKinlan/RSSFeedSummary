@@ -3,6 +3,31 @@
 {% block content %}
 <h2 class="mb-4">Article Summaries</h2>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="search" name="q" 
+                           placeholder="Search titles, summaries, tags..." 
+                           value="{{ request.args.get('q', '') }}">
+                    <button class="btn btn-primary" type="submit">
+                        <i data-feather="search"></i> Search
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" name="filter" id="filter">
+                    <option value="all" {% if request.args.get('filter') == 'all' %}selected{% endif %}>All Content</option>
+                    <option value="title" {% if request.args.get('filter') == 'title' %}selected{% endif %}>Titles Only</option>
+                    <option value="summary" {% if request.args.get('filter') == 'summary' %}selected{% endif %}>Summaries Only</option>
+                    <option value="tags" {% if request.args.get('filter') == 'tags' %}selected{% endif %}>Tags Only</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% if articles %}
 <div class="row">
     {% for article in articles %}
@@ -65,9 +90,42 @@
     </div>
     {% endfor %}
 </div>
+
+{% if articles.pages > 1 %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if articles.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('summaries', page=articles.prev_num, q=request.args.get('q', ''), filter=request.args.get('filter', 'all')) }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for page_num in articles.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+            {% if page_num %}
+                <li class="page-item {% if page_num == articles.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('summaries', page=page_num, q=request.args.get('q', ''), filter=request.args.get('filter', 'all')) }}">{{ page_num }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if articles.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('summaries', page=articles.next_num, q=request.args.get('q', ''), filter=request.args.get('filter', 'all')) }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
 {% else %}
 <div class="alert alert-info">
-    No processed articles yet. Add some feeds and check back later!
+    {% if request.args.get('q') %}
+        No articles found matching your search criteria.
+    {% else %}
+        No processed articles yet. Add some feeds and check back later!
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

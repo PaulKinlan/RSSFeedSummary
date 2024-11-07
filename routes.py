@@ -1,9 +1,10 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
-from models import User, Feed, Article
+from models import User, Feed, Article, Tag, Category
 from feed_processor import schedule_feed_processing
 from datetime import datetime
+from sqlalchemy import or_
 import feedparser
 from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash
@@ -124,12 +125,40 @@ def delete_feed(feed_id):
 @app.route('/summaries')
 @login_required
 def summaries():
-    articles = Article.query.join(Feed).filter(
-        Feed.user_id == current_user.id,
-        Article.processed == True
-    ).order_by(Article.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    search_query = request.args.get('q', '')
+    filter_type = request.args.get('filter', 'all')
     
-    for article in articles:
+    # Base query
+    query = Article.query.join(Feed).filter(Feed.user_id == current_user.id)
+    
+    # Apply search if provided
+    if search_query:
+        if filter_type == 'title':
+            query = query.filter(Article.title.ilike(f'%{search_query}%'))
+        elif filter_type == 'summary':
+            query = query.filter(Article.summary.ilike(f'%{search_query}%'))
+        elif filter_type == 'tags':
+            query = query.join(Article.tags).filter(Tag.name.ilike(f'%{search_query}%'))
+        else:  # 'all'
+            query = query.outerjoin(Article.tags).outerjoin(Article.categories).filter(
+                or_(
+                    Article.title.ilike(f'%{search_query}%'),
+                    Article.summary.ilike(f'%{search_query}%'),
+                    Tag.name.ilike(f'%{search_query}%'),
+                    Category.name.ilike(f'%{search_query}%')
+                )
+            ).distinct()
+    
+    # Order by most recent first
+    query = query.order_by(Article.created_at.desc())
+    
+    # Paginate results
+    articles = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Convert markdown to HTML for summaries and critiques
+    for article in articles.items:
         if article.summary:
             article.summary = convert_markdown_to_html(article.summary)
         if article.critique:
