@@ -1,10 +1,10 @@
 import feedparser
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from app import db, scheduler
 from models import Feed, Article, User, Tag, Category
 from ai_summarizer import generate_summary, get_or_create_tag, get_or_create_category
-from email_service import send_daily_digest
+from email_service import send_daily_digest, send_weekly_digest
 from urllib.parse import urlparse
 
 # Configure logging
@@ -129,12 +129,19 @@ def schedule_feed_processing(feed_id):
             if feed:
                 process_feeds([feed])
     
+    job_id = f'process_feed_{feed_id}'
+    try:
+        scheduler.remove_job(job_id)
+    except:
+        pass
+    
+    # Add new job
     scheduler.add_job(
         func=process_with_context,
-        id=f'process_feed_{feed_id}',
-        replace_existing=True
+        id=job_id,
+        next_run_time=datetime.now()
     )
-    logger.info(f"Scheduled processing for feed ID: {feed_id}")
+    logger.info(f"Scheduled immediate processing for feed ID: {feed_id}")
 
 def schedule_tasks():
     """Schedule periodic tasks for feed processing and email digests."""
@@ -144,24 +151,37 @@ def schedule_tasks():
         with app.app_context():
             process_feeds()
     
-    def send_digest_with_context():
+    def send_daily_digest_with_context():
         with app.app_context():
             send_daily_digest()
+    
+    def send_weekly_digest_with_context():
+        with app.app_context():
+            send_weekly_digest()
             
     try:
+        # Remove existing jobs if they exist
+        try:
+            scheduler.remove_job('process_feeds')
+            scheduler.remove_job('send_daily_digest')
+            scheduler.remove_job('send_weekly_digest')
+        except:
+            pass
+        
         # Schedule feed processing every hour
         scheduler.add_job(
             func=process_with_context,
             trigger='interval',
             hours=1,
             id='process_feeds',
-            replace_existing=True
+            replace_existing=True,
+            next_run_time=datetime.now()
         )
         logger.info("Scheduled feed processing task")
         
         # Schedule daily digest emails at midnight
         scheduler.add_job(
-            func=send_digest_with_context,
+            func=send_daily_digest_with_context,
             trigger='cron',
             hour=0,
             minute=0,
@@ -169,6 +189,18 @@ def schedule_tasks():
             replace_existing=True
         )
         logger.info("Scheduled daily digest task")
+        
+        # Schedule weekly digest emails at midnight on Sundays
+        scheduler.add_job(
+            func=send_weekly_digest_with_context,
+            trigger='cron',
+            day_of_week='sun',
+            hour=0,
+            minute=0,
+            id='send_weekly_digest',
+            replace_existing=True
+        )
+        logger.info("Scheduled weekly digest task")
         
     except Exception as e:
         logger.error(f"Error scheduling tasks: {str(e)}")
