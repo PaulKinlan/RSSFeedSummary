@@ -23,28 +23,36 @@ def verify_recaptcha(token):
             logger.warning("No reCAPTCHA token provided")
             return False
 
-        response = requests.post(
-            'https://www.google.com/recaptcha/api/siteverify',
-            data={
-                'secret': os.environ.get('RECAPTCHA_SECRET_KEY'),
-                'response': token,
-                'remoteip': request.remote_addr  # Add client IP for additional verification
-            }
-        )
+        logger.debug(f"Verifying reCAPTCHA token: {token[:10]}...")  # Log first 10 chars of token for debugging
         
+        verify_url = 'https://www.google.com/recaptcha/api/siteverify'
+        payload = {
+            'secret': os.environ.get('RECAPTCHA_SECRET_KEY'),
+            'response': token,
+            'remoteip': request.remote_addr
+        }
+        
+        logger.debug(f"Sending verification request to {verify_url}")
+        logger.debug(f"Request payload: secret=<redacted>, response length={len(token)}, remoteip={request.remote_addr}")
+        
+        response = requests.post(verify_url, data=payload)
+        
+        logger.debug(f"reCAPTCHA API response status: {response.status_code}")
         result = response.json()
-        logger.info(f"reCAPTCHA verification response: {result}")
+        logger.info(f"reCAPTCHA verification full response: {result}")
         
         if not result.get('success'):
-            logger.warning(f"reCAPTCHA verification failed: {result}")
+            error_codes = result.get('error-codes', [])
+            logger.warning(f"reCAPTCHA verification failed with error codes: {error_codes}")
             return False
             
-        # Verify the action matches
+        # Log the full verification details
+        logger.info(f"reCAPTCHA verification details: score={result.get('score')}, action={result.get('action')}, timestamp={result.get('challenge_ts')}")
+        
         if result.get('action') != 'register':
-            logger.warning(f"reCAPTCHA action mismatch: {result.get('action')}")
+            logger.warning(f"reCAPTCHA action mismatch. Expected 'register', got: {result.get('action')}")
             return False
             
-        # Check score (0.0 is very likely a bot, 1.0 is very likely a human)
         score = result.get('score', 0)
         logger.info(f"reCAPTCHA score: {score}")
         
@@ -56,7 +64,7 @@ def verify_recaptcha(token):
         return True
         
     except Exception as e:
-        logger.error(f"Error verifying reCAPTCHA: {str(e)}")
+        logger.error(f"Error verifying reCAPTCHA: {str(e)}", exc_info=True)
         return False
 
 def convert_markdown_to_html(text):
