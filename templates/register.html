@@ -32,18 +32,34 @@
     </div>
 </div>
 
+<!-- reCAPTCHA script and initialization -->
+<script src="https://www.google.com/recaptcha/api.js?render={{ RECAPTCHA_SITE_KEY }}"></script>
 <script>
+window.addEventListener('load', function() {
+    grecaptcha.ready(function() {
+        // Execute reCAPTCHA on page load to verify the action
+        grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'})
+            .then(function(token) {
+                document.getElementById('recaptcha_token').value = token;
+            })
+            .catch(function(error) {
+                console.error('reCAPTCHA initialization error:', error);
+            });
+    });
+});
+
 document.getElementById('registerForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    grecaptcha.ready(function() {
-        grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'}).then(function(token) {
+    
+    grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'})
+        .then(function(token) {
             document.getElementById('recaptcha_token').value = token;
             document.getElementById('registerForm').submit();
-        }).catch(function(error) {
-            console.error('reCAPTCHA error:', error);
-            alert('Error validating reCAPTCHA. Please try again.');
+        })
+        .catch(function(error) {
+            console.error('reCAPTCHA verification error:', error);
+            alert('Error validating form. Please try again.');
         });
-    });
 });
 </script>
 {% endblock %}

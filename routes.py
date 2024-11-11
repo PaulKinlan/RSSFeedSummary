@@ -23,20 +23,33 @@ def verify_recaptcha(token):
             logger.warning("No reCAPTCHA token provided")
             return False
 
-        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data={
-            'secret': os.environ.get('RECAPTCHA_SECRET_KEY'),
-            'response': token
-        })
+        response = requests.post(
+            'https://www.google.com/recaptcha/api/siteverify',
+            data={
+                'secret': os.environ.get('RECAPTCHA_SECRET_KEY'),
+                'response': token,
+                'remoteip': request.remote_addr  # Add client IP for additional verification
+            }
+        )
         
         result = response.json()
         logger.info(f"reCAPTCHA verification response: {result}")
         
         if not result.get('success'):
-            logger.warning(f"reCAPTCHA verification failed: {result.get('error-codes')}")
+            logger.warning(f"reCAPTCHA verification failed: {result}")
             return False
             
-        if result.get('score', 0) < 0.5:
-            logger.warning(f"reCAPTCHA score too low: {result.get('score')}")
+        # Verify the action matches
+        if result.get('action') != 'register':
+            logger.warning(f"reCAPTCHA action mismatch: {result.get('action')}")
+            return False
+            
+        # Check score (0.0 is very likely a bot, 1.0 is very likely a human)
+        score = result.get('score', 0)
+        logger.info(f"reCAPTCHA score: {score}")
+        
+        if score < 0.5:
+            logger.warning(f"reCAPTCHA score too low: {score}")
             return False
             
         logger.info("reCAPTCHA verification successful")
