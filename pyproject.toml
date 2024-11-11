@@ -16,4 +16,7 @@ dependencies = [
     "resend>=2.4.0",
     "markdown>=3.7",
     "bleach>=6.2.0",
+    "sqlalchemy>=2.0.36",
+    "werkzeug>=3.1.2",
+    "requests>=2.32.3",
 ]

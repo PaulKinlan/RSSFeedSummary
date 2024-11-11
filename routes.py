@@ -12,8 +12,28 @@ from markdown import markdown
 import bleach
 from email_service import send_verification_email
 import logging
+import requests
+import os
 
 logger = logging.getLogger(__name__)
+
+def verify_recaptcha(token):
+    """Verify reCAPTCHA token with Google's API"""
+    try:
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', {
+            'secret': os.environ.get('RECAPTCHA_SECRET_KEY'),
+            'response': token
+        })
+        result = response.json()
+        
+        if result['success'] and result['score'] >= 0.5:  # Threshold for bot detection
+            return True
+        else:
+            logger.warning(f"reCAPTCHA verification failed: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"Error verifying reCAPTCHA: {str(e)}")
+        return False
 
 def convert_markdown_to_html(text):
     # Convert markdown to HTML and sanitize
@@ -49,6 +69,12 @@ def login():
 def register():
     if request.method == 'POST':
         try:
+            # Verify reCAPTCHA token
+            recaptcha_token = request.form.get('recaptcha_token')
+            if not recaptcha_token or not verify_recaptcha(recaptcha_token):
+                flash('reCAPTCHA verification failed. Please try again.')
+                return redirect(url_for('register'))
+            
             if User.query.filter_by(username=request.form['username']).first():
                 flash('Username already exists')
                 return redirect(url_for('register'))

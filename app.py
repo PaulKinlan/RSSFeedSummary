@@ -35,6 +35,9 @@ def create_app():
         "pool_pre_ping": True,
     }
     
+    # Make environment variables available to templates
+    app.jinja_env.globals['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
+    
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)

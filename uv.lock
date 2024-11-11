@@ -715,7 +715,10 @@ dependencies = [
     { name = "google-generativeai" },
     { name = "markdown" },
     { name = "psycopg2-binary" },
+    { name = "requests" },
     { name = "resend" },
+    { name = "sqlalchemy" },
+    { name = "werkzeug" },
 ]
 
 [package.metadata]
@@ -731,7 +734,10 @@ requires-dist = [
     { name = "google-generativeai", specifier = ">=0.8.3" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "requests", specifier = ">=2.32.3" },
     { name = "resend", specifier = ">=2.4.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.36" },
+    { name = "werkzeug", specifier = ">=3.1.2" },
 ]
 
 [[package]]
