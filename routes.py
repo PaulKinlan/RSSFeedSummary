@@ -4,8 +4,7 @@ from app import app, db
 from models import User, Feed, Article, Tag, Category
 from feed_processor import schedule_feed_processing
 from datetime import datetime
-from sqlalchemy import or_
-import feedparser
+from sqlalchemy import or_, desc, nullslast
 from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash
 from markdown import markdown
@@ -211,7 +210,7 @@ def dashboard():
     feeds = Feed.query.filter_by(user_id=current_user.id).all()
     recent_articles = Article.query.join(Feed).filter(
         Feed.user_id == current_user.id
-    ).order_by(Article.created_at.desc()).limit(10).all()
+    ).order_by(nullslast(desc(Article.published_date))).limit(10).all()
     
     for article in recent_articles:
         if article.summary:
@@ -283,8 +282,8 @@ def summaries():
                 )
             ).distinct()
     
-    # Order by most recent first
-    query = query.order_by(Article.created_at.desc())
+    # Order by published date, handling null values
+    query = query.order_by(nullslast(desc(Article.published_date)))
     
     # Paginate results
     articles = query.paginate(page=page, per_page=per_page, error_out=False)
