@@ -13,6 +13,7 @@ from email_service import send_verification_email
 import logging
 import requests
 import os
+import feedparser
 
 logger = logging.getLogger(__name__)
 
