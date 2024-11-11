@@ -18,19 +18,30 @@ import os
 logger = logging.getLogger(__name__)
 
 def verify_recaptcha(token):
-    """Verify reCAPTCHA token with Google's API"""
     try:
-        response = requests.post('https://www.google.com/recaptcha/api/siteverify', {
+        if not token:
+            logger.warning("No reCAPTCHA token provided")
+            return False
+
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data={
             'secret': os.environ.get('RECAPTCHA_SECRET_KEY'),
             'response': token
         })
-        result = response.json()
         
-        if result['success'] and result['score'] >= 0.5:  # Threshold for bot detection
-            return True
-        else:
-            logger.warning(f"reCAPTCHA verification failed: {result}")
+        result = response.json()
+        logger.info(f"reCAPTCHA verification response: {result}")
+        
+        if not result.get('success'):
+            logger.warning(f"reCAPTCHA verification failed: {result.get('error-codes')}")
             return False
+            
+        if result.get('score', 0) < 0.5:
+            logger.warning(f"reCAPTCHA score too low: {result.get('score')}")
+            return False
+            
+        logger.info("reCAPTCHA verification successful")
+        return True
+        
     except Exception as e:
         logger.error(f"Error verifying reCAPTCHA: {str(e)}")
         return False
@@ -69,10 +80,13 @@ def login():
 def register():
     if request.method == 'POST':
         try:
-            # Verify reCAPTCHA token
             recaptcha_token = request.form.get('recaptcha_token')
-            if not recaptcha_token or not verify_recaptcha(recaptcha_token):
-                flash('reCAPTCHA verification failed. Please try again.')
+            if not recaptcha_token:
+                flash('Please ensure JavaScript is enabled for reCAPTCHA validation')
+                return redirect(url_for('register'))
+                
+            if not verify_recaptcha(recaptcha_token):
+                flash('reCAPTCHA verification failed. Please try again')
                 return redirect(url_for('register'))
             
             if User.query.filter_by(username=request.form['username']).first():
@@ -110,9 +124,8 @@ def register():
             return redirect(url_for('login'))
             
         except Exception as e:
-            logger.error(f"Error during registration: {str(e)}")
-            db.session.rollback()
-            flash('An error occurred during registration. Please try again.')
+            logger.error(f"Registration error: {str(e)}")
+            flash('An error occurred during registration. Please try again')
             return redirect(url_for('register'))
             
     return render_template('register.html')

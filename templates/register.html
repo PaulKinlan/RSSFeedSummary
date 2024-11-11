@@ -36,10 +36,12 @@
 document.getElementById('registerForm').addEventListener('submit', function(e) {
     e.preventDefault();
     grecaptcha.ready(function() {
-        grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'})
-        .then(function(token) {
+        grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'}).then(function(token) {
             document.getElementById('recaptcha_token').value = token;
             document.getElementById('registerForm').submit();
+        }).catch(function(error) {
+            console.error('reCAPTCHA error:', error);
+            alert('Error validating reCAPTCHA. Please try again.');
         });
     });
 });
