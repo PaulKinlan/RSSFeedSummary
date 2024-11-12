@@ -27,12 +27,16 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Login</button>
                 </form>
-                <p class="mt-3">
-                    New user? <a href="{{ url_for('register') }}">Register here</a>
-                </p>
-                <p class="mt-2">
-                    Need to verify your email? <a href="{{ url_for('resend_verification') }}">Resend verification email</a>
-                </p>
+                
+                <div class="mt-4">
+                    <p class="mb-2">
+                        New user? <a href="{{ url_for('register') }}">Register here</a>
+                    </p>
+                    <p>
+                        Haven't received or need a new verification email? 
+                        <a href="{{ url_for('resend_verification') }}">Request verification email</a>
+                    </p>
+                </div>
             </div>
         </div>
     </div>

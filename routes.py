@@ -171,21 +171,34 @@ def verify_email(token):
     flash('Email verified successfully! You can now log in.')
     return redirect(url_for('login'))
 
-@app.route('/resend-verification')
-@login_required
+@app.route('/resend-verification', methods=['GET', 'POST'])
 def resend_verification():
-    if current_user.email_verified:
-        return redirect(url_for('dashboard'))
-    
-    token = current_user.generate_verification_token()
-    db.session.commit()
-    
-    if send_verification_email(current_user, token):
-        flash('Verification email sent! Please check your inbox.')
-    else:
-        flash('Error sending verification email. Please try again later.')
-    
-    return redirect(url_for('login'))
+    if request.method == 'POST':
+        email = request.form.get('email')
+        if not email:
+            flash('Please provide an email address.')
+            return redirect(url_for('resend_verification'))
+            
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            flash('No account found with that email address.')
+            return redirect(url_for('resend_verification'))
+            
+        if user.email_verified:
+            flash('This email address is already verified.')
+            return redirect(url_for('login'))
+            
+        token = user.generate_verification_token()
+        db.session.commit()
+        
+        if send_verification_email(user, token):
+            flash('Verification email sent! Please check your inbox.')
+        else:
+            flash('Error sending verification email. Please try again later.')
+        
+        return redirect(url_for('login'))
+        
+    return render_template('resend_verification.html')
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required

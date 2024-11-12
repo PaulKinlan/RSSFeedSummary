@@ -82,11 +82,6 @@ def create_app():
     
     # Configure URL generation
     app.config['PREFERRED_URL_SCHEME'] = 'https'
-    if os.environ.get('SERVER_NAME'):
-        app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
-        logger.info(f"Using custom SERVER_NAME: {app.config['SERVER_NAME']}")
-    else:
-        logger.info("No SERVER_NAME configured, using default URL generation")
     
     # Make environment variables available to templates
     app.jinja_env.globals['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
