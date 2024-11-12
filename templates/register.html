@@ -8,14 +8,6 @@
                 <h4 class="mb-0">Register</h4>
             </div>
             <div class="card-body">
-                {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="alert alert-info">{{ message }}</div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-                
                 <form method="POST" id="registerForm">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
@@ -28,17 +20,6 @@
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
                         <input type="password" class="form-control" id="password" name="password" required>
-                        <div class="form-text">
-                            Password must contain:
-                            <ul class="mb-0">
-                                <li>At least 12 characters</li>
-                                <li>One uppercase letter</li>
-                                <li>One lowercase letter</li>
-                                <li>One number</li>
-                                <li>One special character</li>
-                            </ul>
-                        </div>
-                        <div id="password-feedback" class="form-text"></div>
                     </div>
                     <input type="hidden" name="recaptcha_token" id="recaptcha_token">
                     <button type="submit" class="btn btn-primary">Register</button>
@@ -56,6 +37,7 @@
 <script>
 window.addEventListener('load', function() {
     grecaptcha.ready(function() {
+        // Execute reCAPTCHA on page load to verify the action
         grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'})
             .then(function(token) {
                 document.getElementById('recaptcha_token').value = token;

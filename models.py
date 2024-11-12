@@ -3,7 +3,6 @@ from app import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-import re
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -26,37 +25,7 @@ class User(UserMixin, db.Model):
     include_critique = db.Column(db.Boolean, default=True)
     focus_areas = db.Column(db.String(200), default='main points, key findings')  # comma-separated focus areas
     
-    @staticmethod
-    def validate_password(password):
-        requirements = {
-            'length': len(password) >= 12,
-            'uppercase': bool(re.search(r'[A-Z]', password)),
-            'lowercase': bool(re.search(r'[a-z]', password)),
-            'number': bool(re.search(r'[0-9]', password)),
-            'special': bool(re.search(r'[^A-Za-z0-9]', password))
-        }
-        
-        if all(requirements.values()):
-            return True, "Password meets all requirements"
-            
-        messages = []
-        if not requirements['length']:
-            messages.append("at least 12 characters")
-        if not requirements['uppercase']:
-            messages.append("one uppercase letter")
-        if not requirements['lowercase']:
-            messages.append("one lowercase letter")
-        if not requirements['number']:
-            messages.append("one number")
-        if not requirements['special']:
-            messages.append("one special character")
-            
-        return False, f"Password must contain {', '.join(messages)}"
-
     def set_password(self, password):
-        is_valid, message = self.validate_password(password)
-        if not is_valid:
-            raise ValueError(message)
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
