@@ -37,13 +37,20 @@ def send_email_for_user(user, subject, html_content):
 def send_verification_email(user, token):
     try:
         logger.info(f"Preparing verification email for {user.email}")
-        with current_app.test_request_context():
-            html_content = render_template(
-                'email/verify_email.html',
-                user=user,
-                token=token
-            )
+        html_content = None
         
+        with current_app.app_context():
+            with current_app.test_request_context():
+                html_content = render_template(
+                    'email/verify_email.html',
+                    user=user,
+                    token=token
+                )
+        
+        if not html_content:
+            logger.error("Failed to generate verification email content")
+            return False
+            
         result = send_email_for_user(
             user,
             "Verify Your Email Address - RSS Monitor",
@@ -62,15 +69,13 @@ def send_verification_email(user, token):
         return False
 
 def send_daily_digest():
-    """Send daily digest emails to users who have enabled them"""
     users = User.query.filter_by(
         email_notifications_enabled=True,
         email_frequency='daily',
-        email_verified=True  # Only send to verified users
+        email_verified=True
     ).all()
     
     for user in users:
-        # Get articles from the last 24 hours
         yesterday = datetime.utcnow() - timedelta(days=1)
         articles = Article.query.join(Feed).filter(
             Feed.user_id == user.id,
@@ -80,13 +85,19 @@ def send_daily_digest():
         
         if articles:
             try:
-                with current_app.test_request_context():
-                    html_content = render_template(
-                        'email/daily_digest.html',
-                        user=user,
-                        articles=articles
-                    )
+                html_content = None
+                with current_app.app_context():
+                    with current_app.test_request_context():
+                        html_content = render_template(
+                            'email/daily_digest.html',
+                            user=user,
+                            articles=articles
+                        )
                 
+                if not html_content:
+                    logger.error(f"Failed to generate daily digest content for {user.email}")
+                    continue
+                    
                 if send_email_for_user(
                     user,
                     "Your Daily RSS Feed Digest",
@@ -99,15 +110,13 @@ def send_daily_digest():
                 logger.error(f"Error preparing daily digest for {user.email}: {str(e)}")
 
 def send_weekly_digest():
-    """Send weekly digest emails to users who have enabled them"""
     users = User.query.filter_by(
         email_notifications_enabled=True,
         email_frequency='weekly',
-        email_verified=True  # Only send to verified users
+        email_verified=True
     ).all()
     
     for user in users:
-        # Get articles from the last 7 days
         last_week = datetime.utcnow() - timedelta(days=7)
         articles = Article.query.join(Feed).filter(
             Feed.user_id == user.id,
@@ -117,13 +126,19 @@ def send_weekly_digest():
         
         if articles:
             try:
-                with current_app.test_request_context():
-                    html_content = render_template(
-                        'email/daily_digest.html',  # We can reuse the same template
-                        user=user,
-                        articles=articles
-                    )
+                html_content = None
+                with current_app.app_context():
+                    with current_app.test_request_context():
+                        html_content = render_template(
+                            'email/daily_digest.html',  # We can reuse the same template
+                            user=user,
+                            articles=articles
+                        )
                 
+                if not html_content:
+                    logger.error(f"Failed to generate weekly digest content for {user.email}")
+                    continue
+                    
                 if send_email_for_user(
                     user,
                     "Your Weekly RSS Feed Digest",

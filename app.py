@@ -79,7 +79,7 @@ def create_app():
         "pool_pre_ping": True,
     }
     
-    # Configure preferred URL scheme
+    # Configure URL generation
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     
     # Make environment variables available to templates

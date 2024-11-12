@@ -15,13 +15,13 @@
         <p>Thank you for registering with RSS Monitor. Please click the button below to verify your email address:</p>
         
         <p style="margin: 30px 0;">
-            <a href="{{ url_for('verify_email', token=token, _external=True) }}" class="btn">
+            <a href="{{ url_for('verify_email', token=token, _external=True, _scheme='https') }}" class="btn">
                 Verify Email Address
             </a>
         </p>
         
         <p>Or copy and paste this link in your browser:</p>
-        <p>{{ url_for('verify_email', token=token, _external=True) }}</p>
+        <p>{{ url_for('verify_email', token=token, _external=True, _scheme='https') }}</p>
         
         <p>This verification link will expire in 24 hours.</p>
         
