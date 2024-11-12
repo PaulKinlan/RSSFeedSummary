@@ -36,6 +36,7 @@ logging_config = {
 }
 
 logging.config.dictConfig(logging_config)
+logger = logging.getLogger(__name__)
 
 class Base(DeclarativeBase):
     pass
@@ -56,17 +57,17 @@ scheduler = BackgroundScheduler({
 })
 
 def handle_scheduler_error(event):
-    logging.error(f"Scheduler error: Job {event.job_id} failed with {event.exception}")
+    logger.error(f"Scheduler error: Job {event.job_id} failed with {event.exception}")
     
 def handle_job_missed(event):
-    logging.warning(f"Job missed: {event.job_id} scheduled at {event.scheduled_run_time}")
+    logger.warning(f"Job missed: {event.job_id} scheduled at {event.scheduled_run_time}")
     # Reschedule missed jobs if needed
     try:
         job = scheduler.get_job(event.job_id)
         if job and not job.next_run_time:
             job.reschedule()
     except Exception as e:
-        logging.error(f"Error rescheduling missed job {event.job_id}: {str(e)}")
+        logger.error(f"Error rescheduling missed job {event.job_id}: {str(e)}")
 
 def create_app():
     app = Flask(__name__)
@@ -81,6 +82,11 @@ def create_app():
     
     # Configure URL generation
     app.config['PREFERRED_URL_SCHEME'] = 'https'
+    if os.environ.get('SERVER_NAME'):
+        app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
+        logger.info(f"Using custom SERVER_NAME: {app.config['SERVER_NAME']}")
+    else:
+        logger.info("No SERVER_NAME configured, using default URL generation")
     
     # Make environment variables available to templates
     app.jinja_env.globals['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
@@ -103,7 +109,7 @@ with app.app_context():
     try:
         # Create tables only if they don't exist
         db.create_all()
-        print("Database tables initialized successfully")
+        logger.info("Database tables initialized successfully")
         
         # Add scheduler event listeners
         scheduler.add_listener(handle_scheduler_error, EVENT_JOB_ERROR)
@@ -114,16 +120,16 @@ with app.app_context():
             scheduler.start()
             # Schedule initial tasks
             schedule_tasks()
-            print("Scheduler started and tasks initialized")
+            logger.info("Scheduler started and tasks initialized")
             
             # Register shutdown handler with proper cleanup
             def cleanup():
                 if scheduler.running:
                     scheduler.shutdown(wait=True)
-                    print("Scheduler shutdown completed")
+                    logger.info("Scheduler shutdown completed")
             
             atexit.register(cleanup)
             
     except Exception as e:
-        print(f"Error during initialization: {e}")
+        logger.error(f"Error during initialization: {e}")
         raise
