@@ -79,6 +79,9 @@ def create_app():
         "pool_pre_ping": True,
     }
     
+    # Configure preferred URL scheme
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    
     # Make environment variables available to templates
     app.jinja_env.globals['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
     
