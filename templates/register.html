@@ -8,18 +8,21 @@
                 <h4 class="mb-0">Register</h4>
             </div>
             <div class="card-body">
-                <form method="POST" id="registerForm">
+                <form method="POST" id="registerForm" name="registration-form">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               autocomplete="username" required>
                     </div>
                     <div class="mb-3">
                         <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               autocomplete="email" required>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               autocomplete="new-password" required>
                     </div>
                     <input type="hidden" name="recaptcha_token" id="recaptcha_token">
                     <button type="submit" class="btn btn-primary">Register</button>
