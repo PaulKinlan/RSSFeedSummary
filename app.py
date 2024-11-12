@@ -3,7 +3,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.events import EVENT_JOB_ERROR
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from sqlalchemy.orm import DeclarativeBase
 import atexit
 import logging
@@ -43,15 +43,30 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 login_manager = LoginManager()
 
-# Configure scheduler with proper settings
+# Enhanced scheduler configuration
 scheduler = BackgroundScheduler({
     'apscheduler.timezone': 'UTC',
     'apscheduler.job_defaults.coalesce': True,
-    'apscheduler.job_defaults.max_instances': 1
+    'apscheduler.job_defaults.max_instances': 1,
+    'apscheduler.job_defaults.misfire_grace_time': 15 * 60,  # 15 minutes grace time
+    'apscheduler.executors.default': {
+        'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+        'max_workers': '20'
+    }
 })
 
 def handle_scheduler_error(event):
     logging.error(f"Scheduler error: Job {event.job_id} failed with {event.exception}")
+    
+def handle_job_missed(event):
+    logging.warning(f"Job missed: {event.job_id} scheduled at {event.scheduled_run_time}")
+    # Reschedule missed jobs if needed
+    try:
+        job = scheduler.get_job(event.job_id)
+        if job and not job.next_run_time:
+            job.reschedule()
+    except Exception as e:
+        logging.error(f"Error rescheduling missed job {event.job_id}: {str(e)}")
 
 def create_app():
     app = Flask(__name__)
@@ -87,8 +102,9 @@ with app.app_context():
         db.create_all()
         print("Database tables initialized successfully")
         
-        # Add error listener to scheduler
+        # Add scheduler event listeners
         scheduler.add_listener(handle_scheduler_error, EVENT_JOB_ERROR)
+        scheduler.add_listener(handle_job_missed, EVENT_JOB_MISSED)
         
         # Start scheduler if not already running
         if not scheduler.running:
@@ -97,8 +113,13 @@ with app.app_context():
             schedule_tasks()
             print("Scheduler started and tasks initialized")
             
-            # Register shutdown handler
-            atexit.register(lambda: scheduler.shutdown(wait=False))
+            # Register shutdown handler with proper cleanup
+            def cleanup():
+                if scheduler.running:
+                    scheduler.shutdown(wait=True)
+                    print("Scheduler shutdown completed")
+            
+            atexit.register(cleanup)
             
     except Exception as e:
         print(f"Error during initialization: {e}")
