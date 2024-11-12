@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash
 from markdown import markdown
 import bleach
-from email_service import send_verification_email
+from email_service import send_verification_email, send_daily_digest
 import logging
 import requests
 import os
@@ -303,3 +303,12 @@ def summaries():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+@app.route('/test-digest')
+@login_required
+def test_digest():
+    """Test route for checking email digests"""
+    if current_user.is_authenticated:
+        send_daily_digest()
+        flash('Test digest email sent')
+    return redirect(url_for('dashboard'))

@@ -1,7 +1,7 @@
 import os
 import resend
 import logging
-from flask import render_template
+from flask import render_template, current_app
 from app import db
 from models import User, Article, Feed
 from datetime import datetime, timedelta
@@ -37,11 +37,12 @@ def send_email_for_user(user, subject, html_content):
 def send_verification_email(user, token):
     try:
         logger.info(f"Preparing verification email for {user.email}")
-        html_content = render_template(
-            'email/verify_email.html',
-            user=user,
-            token=token
-        )
+        with current_app.test_request_context():
+            html_content = render_template(
+                'email/verify_email.html',
+                user=user,
+                token=token
+            )
         
         result = send_email_for_user(
             user,
@@ -74,15 +75,16 @@ def send_daily_digest():
             Feed.user_id == user.id,
             Article.created_at >= yesterday,
             Article.processed == True
-        ).all()
+        ).order_by(Article.published_date.desc().nullslast()).all()
         
         if articles:
             try:
-                html_content = render_template(
-                    'email/daily_digest.html',
-                    user=user,
-                    articles=articles
-                )
+                with current_app.test_request_context():
+                    html_content = render_template(
+                        'email/daily_digest.html',
+                        user=user,
+                        articles=articles
+                    )
                 
                 if send_email_for_user(
                     user,
@@ -109,15 +111,16 @@ def send_weekly_digest():
             Feed.user_id == user.id,
             Article.created_at >= last_week,
             Article.processed == True
-        ).all()
+        ).order_by(Article.published_date.desc().nullslast()).all()
         
         if articles:
             try:
-                html_content = render_template(
-                    'email/daily_digest.html',  # We can reuse the same template
-                    user=user,
-                    articles=articles
-                )
+                with current_app.test_request_context():
+                    html_content = render_template(
+                        'email/daily_digest.html',  # We can reuse the same template
+                        user=user,
+                        articles=articles
+                    )
                 
                 if send_email_for_user(
                     user,

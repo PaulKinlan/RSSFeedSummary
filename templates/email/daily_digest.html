@@ -51,13 +51,18 @@
             </p>
             {% endif %}
             
-            <a href="{{ article.url }}" class="link">Read Original Article</a>
+            <a href="{{ article.url if article.url.startswith('http') else 'https://' + article.url }}" class="link" target="_blank">Read Original Article</a>
         </div>
         {% endfor %}
 
         <p>
             View all your summaries on the website:
-            <a href="{{ url_for('summaries', _external=True) }}" class="link">View All Summaries</a>
+            <a href="{{ url_for('summaries', _external=True, _scheme='https') }}" class="link">View All Summaries</a>
+        </p>
+        
+        <p>
+            Manage your feeds:
+            <a href="{{ url_for('manage_feeds', _external=True, _scheme='https') }}" class="link">Manage Feeds</a>
         </p>
     </div>
 </body>
