@@ -80,8 +80,13 @@ def create_app():
         "pool_pre_ping": True,
     }
     
-    # Always use HTTPS for URL generation in production
+    # Always use HTTPS for URL generation
     app.config['PREFERRED_URL_SCHEME'] = 'https'
+    
+    # Configure session cookie settings for security
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
     # Make environment variables available to templates
     app.jinja_env.globals['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
