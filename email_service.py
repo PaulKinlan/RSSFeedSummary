@@ -65,7 +65,8 @@ def send_daily_digest():
     """Send daily digest emails to users who have enabled them"""
     users = User.query.filter_by(
         email_notifications_enabled=True,
-        email_frequency='daily'
+        email_frequency='daily',
+        email_verified=True  # Only send to verified users
     ).all()
     
     for user in users:
@@ -101,7 +102,8 @@ def send_weekly_digest():
     """Send weekly digest emails to users who have enabled them"""
     users = User.query.filter_by(
         email_notifications_enabled=True,
-        email_frequency='weekly'
+        email_frequency='weekly',
+        email_verified=True  # Only send to verified users
     ).all()
     
     for user in users:
