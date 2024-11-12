@@ -31,7 +31,7 @@ args = "FLASK_ENV=development python main.py"
 waitForPort = 5000
 
 [deployment]
-run = ["sh", "-c", "FLASK_ENV=development python main.py"]
+run = ["sh", "-c", "python main.py"]
 
 [[ports]]
 localPort = 5000
