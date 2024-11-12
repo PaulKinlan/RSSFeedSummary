@@ -28,17 +28,30 @@ class User(UserMixin, db.Model):
     
     @staticmethod
     def validate_password(password):
-        if len(password) < 12:
-            return False, "Password must be at least 12 characters long"
-        if not re.search(r'[A-Z]', password):
-            return False, "Password must contain at least one uppercase letter"
-        if not re.search(r'[a-z]', password):
-            return False, "Password must contain at least one lowercase letter"
-        if not re.search(r'[0-9]', password):
-            return False, "Password must contain at least one number"
-        if not re.search(r'[^A-Za-z0-9]', password):
-            return False, "Password must contain at least one special character"
-        return True, "Password meets requirements"
+        requirements = {
+            'length': len(password) >= 12,
+            'uppercase': bool(re.search(r'[A-Z]', password)),
+            'lowercase': bool(re.search(r'[a-z]', password)),
+            'number': bool(re.search(r'[0-9]', password)),
+            'special': bool(re.search(r'[^A-Za-z0-9]', password))
+        }
+        
+        if all(requirements.values()):
+            return True, "Password meets all requirements"
+            
+        messages = []
+        if not requirements['length']:
+            messages.append("at least 12 characters")
+        if not requirements['uppercase']:
+            messages.append("one uppercase letter")
+        if not requirements['lowercase']:
+            messages.append("one lowercase letter")
+        if not requirements['number']:
+            messages.append("one number")
+        if not requirements['special']:
+            messages.append("one special character")
+            
+        return False, f"Password must contain {', '.join(messages)}"
 
     def set_password(self, password):
         is_valid, message = self.validate_password(password)

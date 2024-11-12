@@ -27,12 +27,11 @@
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" 
-                               required pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$"
-                               aria-describedby="passwordHelp">
-                        <div id="passwordHelp" class="form-text">
-                            Password must be at least 12 characters long and contain:
+                        <input type="password" class="form-control" id="password" name="password" required>
+                        <div class="form-text">
+                            Password must contain:
                             <ul class="mb-0">
+                                <li>At least 12 characters</li>
                                 <li>One uppercase letter</li>
                                 <li>One lowercase letter</li>
                                 <li>One number</li>
@@ -57,7 +56,6 @@
 <script>
 window.addEventListener('load', function() {
     grecaptcha.ready(function() {
-        // Execute reCAPTCHA on page load to verify the action
         grecaptcha.execute('{{ RECAPTCHA_SITE_KEY }}', {action: 'register'})
             .then(function(token) {
                 document.getElementById('recaptcha_token').value = token;

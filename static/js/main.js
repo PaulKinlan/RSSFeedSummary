@@ -6,6 +6,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     })
 
+    // Password validation
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        const passwordInput = registerForm.querySelector('#password');
+        const feedbackDiv = document.getElementById('password-feedback');
+        
+        const validatePassword = (password) => {
+            const requirements = [
+                { test: /.{12,}/, text: '12+ characters' },
+                { test: /[A-Z]/, text: 'uppercase' },
+                { test: /[a-z]/, text: 'lowercase' },
+                { test: /[0-9]/, text: 'number' },
+                { test: /[^A-Za-z0-9]/, text: 'special character' }
+            ];
+            
+            const failed = requirements.filter(req => !req.test.test(password));
+            return failed.length ? failed.map(r => r.text) : null;
+        };
+        
+        passwordInput.addEventListener('input', function() {
+            const missing = validatePassword(this.value);
+            if (missing) {
+                feedbackDiv.innerHTML = `Missing: ${missing.join(', ')}`;
+                feedbackDiv.className = 'text-danger form-text';
+                this.setCustomValidity('Password requirements not met');
+            } else {
+                feedbackDiv.innerHTML = 'Password meets all requirements';
+                feedbackDiv.className = 'text-success form-text';
+                this.setCustomValidity('');
+            }
+        });
+    }
+
     // Feed URL validation
     const feedForm = document.querySelector('form[action="/feeds"]');
     if (feedForm) {
@@ -14,41 +47,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!urlInput.value.trim()) {
                 e.preventDefault();
                 alert('Please enter a valid feed URL');
-            }
-        });
-    }
-
-    // Password validation
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
-        const passwordInput = registerForm.querySelector('#password');
-        const passwordFeedback = document.getElementById('password-feedback');
-        
-        passwordInput.addEventListener('input', function() {
-            const password = this.value;
-            const requirements = {
-                length: password.length >= 12,
-                uppercase: /[A-Z]/.test(password),
-                lowercase: /[a-z]/.test(password),
-                number: /[0-9]/.test(password),
-                special: /[^A-Za-z0-9]/.test(password)
-            };
-
-            let feedback = [];
-            if (!requirements.length) feedback.push('At least 12 characters');
-            if (!requirements.uppercase) feedback.push('One uppercase letter');
-            if (!requirements.lowercase) feedback.push('One lowercase letter');
-            if (!requirements.number) feedback.push('One number');
-            if (!requirements.special) feedback.push('One special character');
-
-            if (feedback.length > 0) {
-                passwordFeedback.innerHTML = 'Missing requirements: ' + feedback.join(', ');
-                passwordFeedback.className = 'text-danger';
-                this.setCustomValidity('Password requirements not met');
-            } else {
-                passwordFeedback.innerHTML = 'Password meets all requirements';
-                passwordFeedback.className = 'text-success';
-                this.setCustomValidity('');
             }
         });
     }
