@@ -80,13 +80,18 @@ def create_app():
         "pool_pre_ping": True,
     }
     
-    # Always use HTTPS for URL generation
+    # Configure URL generation
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     
-    # Configure session cookie settings for security
-    app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    # Set SERVER_NAME only in production environment
+    if os.environ.get('FLASK_ENV') == 'production':
+        if os.environ.get('SERVER_NAME'):
+            app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
+            logger.info(f"Production environment: Using SERVER_NAME={os.environ.get('SERVER_NAME')}")
+        else:
+            logger.warning("Production environment but no SERVER_NAME configured")
+    else:
+        logger.info(f"Development environment: Using default URL generation")
     
     # Make environment variables available to templates
     app.jinja_env.globals['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
