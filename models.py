@@ -3,6 +3,7 @@ from app import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
+import re
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -25,7 +26,24 @@ class User(UserMixin, db.Model):
     include_critique = db.Column(db.Boolean, default=True)
     focus_areas = db.Column(db.String(200), default='main points, key findings')  # comma-separated focus areas
     
+    @staticmethod
+    def validate_password(password):
+        if len(password) < 12:
+            return False, "Password must be at least 12 characters long"
+        if not re.search(r'[A-Z]', password):
+            return False, "Password must contain at least one uppercase letter"
+        if not re.search(r'[a-z]', password):
+            return False, "Password must contain at least one lowercase letter"
+        if not re.search(r'[0-9]', password):
+            return False, "Password must contain at least one number"
+        if not re.search(r'[^A-Za-z0-9]', password):
+            return False, "Password must contain at least one special character"
+        return True, "Password meets requirements"
+
     def set_password(self, password):
+        is_valid, message = self.validate_password(password)
+        if not is_valid:
+            raise ValueError(message)
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):

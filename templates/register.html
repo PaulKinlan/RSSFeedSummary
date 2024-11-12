@@ -8,6 +8,14 @@
                 <h4 class="mb-0">Register</h4>
             </div>
             <div class="card-body">
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-info">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
                 <form method="POST" id="registerForm">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
@@ -19,7 +27,19 @@
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               required pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$"
+                               aria-describedby="passwordHelp">
+                        <div id="passwordHelp" class="form-text">
+                            Password must be at least 12 characters long and contain:
+                            <ul class="mb-0">
+                                <li>One uppercase letter</li>
+                                <li>One lowercase letter</li>
+                                <li>One number</li>
+                                <li>One special character</li>
+                            </ul>
+                        </div>
+                        <div id="password-feedback" class="form-text"></div>
                     </div>
                     <input type="hidden" name="recaptcha_token" id="recaptcha_token">
                     <button type="submit" class="btn btn-primary">Register</button>

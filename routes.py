@@ -123,7 +123,12 @@ def register():
                 email=request.form['email'],
                 email_verified=False
             )
-            user.set_password(request.form['password'])
+            
+            try:
+                user.set_password(request.form['password'])
+            except ValueError as e:
+                flash(str(e))
+                return redirect(url_for('register'))
             
             # Generate verification token
             logger.info(f"Generating verification token for user {user.username}")
