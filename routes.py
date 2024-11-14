@@ -56,7 +56,7 @@ def verify_recaptcha(token):
             return False
             
         score = result.get('score', 0)
-        logger.info(f"reCAPTCHA score: {score}")
+        logger.info(f"reCAPTCopHA score: {score}")
         
         if score < 0.5:
             logger.warning(f"reCAPTCHA score too low: {score}")
@@ -311,29 +311,29 @@ def import_opml():
         def process_outline(outline):
             nonlocal imported_count, skipped_count
             
-            for entry in outline:
-                # Handle nested outlines
-                if hasattr(entry, 'xmlUrl'):
-                    # Check if feed already exists
-                    existing_feed = Feed.query.filter_by(
-                        url=entry.xmlUrl,
-                        user_id=current_user.id
-                    ).first()
-                    
-                    if not existing_feed:
-                        new_feed = Feed(
+            if hasattr(outline, '__iter__'):
+                for entry in outline:
+                    if hasattr(entry, 'xmlUrl'):
+                        # Check if feed already exists
+                        existing_feed = Feed.query.filter_by(
                             url=entry.xmlUrl,
-                            title=getattr(entry, 'title', '') or getattr(entry, 'text', ''),
                             user_id=current_user.id
-                        )
-                        db.session.add(new_feed)
-                        imported_count += 1
-                    else:
-                        skipped_count += 1
+                        ).first()
                         
-                # Process nested outlines
-                if hasattr(entry, 'outline'):
-                    process_outline(entry.outline)
+                        if not existing_feed:
+                            new_feed = Feed(
+                                url=entry.xmlUrl,
+                                title=getattr(entry, 'title', '') or getattr(entry, 'text', ''),
+                                user_id=current_user.id
+                            )
+                            db.session.add(new_feed)
+                            imported_count += 1
+                        else:
+                            skipped_count += 1
+                            
+                    # Process nested outlines recursively
+                    if len(entry):  # Check if entry has children
+                        process_outline(entry)
         
         # Process the OPML file
         process_outline(outline)
