@@ -311,29 +311,30 @@ def import_opml():
         def process_outline(outline):
             nonlocal imported_count, skipped_count
             
-            if hasattr(outline, '__iter__'):
-                for entry in outline:
-                    if hasattr(entry, 'xmlUrl'):
-                        # Check if feed already exists
-                        existing_feed = Feed.query.filter_by(
+            # Process current level
+            for entry in outline:
+                # Check if entry has xmlUrl (RSS feed)
+                if hasattr(entry, 'xmlUrl'):
+                    # Check if feed already exists
+                    existing_feed = Feed.query.filter_by(
+                        url=entry.xmlUrl,
+                        user_id=current_user.id
+                    ).first()
+                    
+                    if not existing_feed:
+                        new_feed = Feed(
                             url=entry.xmlUrl,
+                            title=getattr(entry, 'text', '') or getattr(entry, 'title', ''),
                             user_id=current_user.id
-                        ).first()
-                        
-                        if not existing_feed:
-                            new_feed = Feed(
-                                url=entry.xmlUrl,
-                                title=getattr(entry, 'title', '') or getattr(entry, 'text', ''),
-                                user_id=current_user.id
-                            )
-                            db.session.add(new_feed)
-                            imported_count += 1
-                        else:
-                            skipped_count += 1
-                            
-                    # Process nested outlines recursively
-                    if len(entry):  # Check if entry has children
-                        process_outline(entry)
+                        )
+                        db.session.add(new_feed)
+                        imported_count += 1
+                    else:
+                        skipped_count += 1
+                
+                # Process nested outlines (if any exist)
+                if len(entry) > 0:  # Using Python sequence operator to check for nested elements
+                    process_outline(entry)  # Recursively process nested outlines
         
         # Process the OPML file
         process_outline(outline)
