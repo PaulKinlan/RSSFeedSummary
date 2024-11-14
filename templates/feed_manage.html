@@ -11,10 +11,28 @@
                 <form method="POST">
                     <div class="mb-3">
                         <label for="url" class="form-label">Feed URL</label>
-                        <input type="url" class="form-control" id="url" name="url" required
+                        <input type="url" class="form-control" id="url" name="url" 
                                placeholder="https://example.com/feed.xml">
                     </div>
                     <button type="submit" class="btn btn-primary">Add Feed</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Import OPML File</h5>
+                <form method="POST" action="{{ url_for('import_opml') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="opml_file" class="form-label">OPML File</label>
+                        <input type="file" class="form-control" id="opml_file" name="opml_file" 
+                               accept=".opml,.xml">
+                        <div class="form-text">
+                            Upload an OPML file to import multiple feeds at once
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Import OPML</button>
                 </form>
             </div>
         </div>
@@ -67,7 +85,7 @@
                             <form method="POST" action="{{ url_for('delete_feed', feed_id=feed.id) }}"
                                   class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-danger"
-                                        onclick="return confirm('Are you sure?')">
+                                        data-confirm="Are you sure you want to delete this feed?">
                                     <i data-feather="trash-2"></i>
                                 </button>
                             </form>
@@ -79,7 +97,7 @@
         </div>
         {% else %}
         <div class="alert alert-info">
-            No feeds added yet. Add your first feed above!
+            No feeds added yet. Add your first feed above or import from an OPML file!
         </div>
         {% endif %}
     </div>

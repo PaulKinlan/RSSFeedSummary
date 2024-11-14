@@ -14,6 +14,8 @@ import logging
 import requests
 import os
 import feedparser
+import opml
+from werkzeug.utils import secure_filename
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +285,74 @@ def manage_feeds():
     
     feeds = Feed.query.filter_by(user_id=current_user.id).all()
     return render_template('feed_manage.html', feeds=feeds)
+
+@app.route('/feeds/import-opml', methods=['POST'])
+@login_required
+def import_opml():
+    if 'opml_file' not in request.files:
+        flash('No file provided')
+        return redirect(url_for('manage_feeds'))
+    
+    file = request.files['opml_file']
+    if file.filename == '':
+        flash('No file selected')
+        return redirect(url_for('manage_feeds'))
+        
+    if not file.filename.endswith(('.opml', '.xml')):
+        flash('Invalid file type. Please upload an OPML file')
+        return redirect(url_for('manage_feeds'))
+    
+    try:
+        # Parse OPML content
+        outline = opml.parse(file)
+        imported_count = 0
+        skipped_count = 0
+        
+        def process_outline(outline):
+            nonlocal imported_count, skipped_count
+            
+            for entry in outline:
+                # Handle nested outlines
+                if hasattr(entry, 'xmlUrl'):
+                    # Check if feed already exists
+                    existing_feed = Feed.query.filter_by(
+                        url=entry.xmlUrl,
+                        user_id=current_user.id
+                    ).first()
+                    
+                    if not existing_feed:
+                        new_feed = Feed(
+                            url=entry.xmlUrl,
+                            title=getattr(entry, 'title', '') or getattr(entry, 'text', ''),
+                            user_id=current_user.id
+                        )
+                        db.session.add(new_feed)
+                        imported_count += 1
+                    else:
+                        skipped_count += 1
+                        
+                # Process nested outlines
+                if hasattr(entry, 'outline'):
+                    process_outline(entry.outline)
+        
+        # Process the OPML file
+        process_outline(outline)
+        
+        # Commit all new feeds
+        db.session.commit()
+        
+        # Schedule processing for all new feeds
+        feeds = Feed.query.filter_by(user_id=current_user.id).all()
+        for feed in feeds:
+            schedule_feed_processing(feed.id)
+        
+        flash(f'Successfully imported {imported_count} feeds ({skipped_count} skipped as duplicates)')
+        
+    except Exception as e:
+        logger.error(f"Error importing OPML file: {str(e)}")
+        flash('Error importing OPML file. Please ensure the file is valid')
+        
+    return redirect(url_for('manage_feeds'))
 
 @app.route('/feeds/<int:feed_id>/delete', methods=['POST'])
 @login_required

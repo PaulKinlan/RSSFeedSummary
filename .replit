@@ -15,8 +15,27 @@ author = "agent"
 task = "workflow.run"
 args = "Flask RSS Monitor"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Flask Server"
+
 [[workflows.workflow]]
 name = "Flask RSS Monitor"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "FLASK_ENV=development python main.py"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Flask Server"
 author = "agent"
 
 [workflows.workflow.metadata]
