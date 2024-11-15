@@ -23,7 +23,9 @@
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">{{ article.title }}</h5>
+                <h5 class="card-title" title="{{ article.title }}">
+                    {{ article.title[:100] + '...' if article.title|length > 100 else article.title }}
+                </h5>
                 <h6 class="card-subtitle mb-2 text-muted">
                     From: {{ article.feed.title }}
                 </h6>
