@@ -273,7 +273,7 @@ def manage_feeds():
         
         new_feed = Feed(
             url=feed_url,
-            title=title,
+            title=title[:200] if title else urlparse(feed_url).netloc[:200],  # Truncate to 200 chars
             user_id=current_user.id
         )
         db.session.add(new_feed)
@@ -324,7 +324,7 @@ def import_opml():
                     if not existing_feed:
                         new_feed = Feed(
                             url=entry.xmlUrl,
-                            title=getattr(entry, 'text', '') or getattr(entry, 'title', ''),
+                            title=(getattr(entry, 'text', '') or getattr(entry, 'title', ''))[:200],  # Truncate to 200 chars
                             user_id=current_user.id
                         )
                         db.session.add(new_feed)

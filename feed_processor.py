@@ -33,9 +33,9 @@ def process_feeds(feeds=None):
                     parsed_feed = feedparser.parse(feed.url)
                     
                     if hasattr(parsed_feed.feed, 'title'):
-                        feed.title = parsed_feed.feed.title
+                        feed.title = parsed_feed.feed.title[:200]  # Truncate feed title
                     else:
-                        feed.title = urlparse(feed.url).netloc
+                        feed.title = urlparse(feed.url).netloc[:200]  # Truncate netloc
                     
                     feed.last_checked = datetime.utcnow()
                     
@@ -61,7 +61,7 @@ def process_feeds(feeds=None):
                                     published = datetime(*published[:6])
                                 
                                 article = Article(
-                                    title=entry.title,
+                                    title=entry.title[:200] if entry.title else '',  # Truncate to 200 chars
                                     url=entry.link,
                                     content=entry.get('description', ''),
                                     published_date=published,
