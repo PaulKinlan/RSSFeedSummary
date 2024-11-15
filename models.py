@@ -59,9 +59,19 @@ article_categories = db.Table('article_categories',
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(30), unique=True, nullable=False)  # Reduced from 50 to 30 for better manageability
     articles = db.relationship('Article', secondary=article_tags, backref=db.backref('tags', lazy='dynamic'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    @staticmethod
+    def clean_tag_name(name):
+        """Clean and validate tag name"""
+        if not name:
+            return None
+        # Remove extra whitespace and convert to lowercase
+        cleaned = ' '.join(name.lower().split()).strip()
+        # Truncate if longer than 30 characters
+        return cleaned[:30] if cleaned else None
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -7,11 +7,16 @@ from models import User, Tag, Category, db
 genai.configure(api_key=os.environ['GOOGLE_GEMINI_API_KEY'])
 model = genai.GenerativeModel('gemini-pro')
 
-def get_or_create_tag(name: str) -> Tag:
-    """Get existing tag or create a new one"""
-    tag = Tag.query.filter_by(name=name.lower().strip()).first()
+def get_or_create_tag(name: str) -> Optional[Tag]:
+    """Get existing tag or create a new one with proper validation"""
+    # Clean and validate tag name
+    cleaned_name = Tag.clean_tag_name(name)
+    if not cleaned_name:
+        return None
+        
+    tag = Tag.query.filter_by(name=cleaned_name).first()
     if not tag:
-        tag = Tag(name=name.lower().strip())
+        tag = Tag(name=cleaned_name)
         db.session.add(tag)
     return tag
 
@@ -45,7 +50,7 @@ def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str,
         1. A {length_guide} summary focusing on:
 {focus_areas_str}
 
-        2. Generate up to 5 relevant tags (single words or short phrases) that best describe the content
+        2. Generate up to 5 relevant tags (single words or short phrases, each max 30 characters) that best describe the content
         
         3. Categorize the content into 1-2 broad categories from this list:
            - Technology
@@ -81,7 +86,9 @@ def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str,
                     parts[current_section] = line.replace('Summary:', '').strip()
                 elif line.startswith('Tags:'):
                     current_section = 'tags'
-                    parts[current_section] = [tag.strip() for tag in line.replace('Tags:', '').strip().split(',')]
+                    # Clean and validate tags
+                    tags = [tag.strip() for tag in line.replace('Tags:', '').strip().split(',')]
+                    parts[current_section] = [tag for tag in tags if Tag.clean_tag_name(tag)]
                 elif line.startswith('Categories:'):
                     current_section = 'categories'
                     parts[current_section] = [cat.strip() for cat in line.replace('Categories:', '').strip().split(',')]
