@@ -29,11 +29,18 @@ def cleanup_expired_accounts():
             deleted_count = 0
             for user in expired_accounts:
                 try:
-                    # Delete all associated feeds first
+                    # Delete all associated articles first
+                    feeds = Feed.query.filter_by(user_id=user.id).all()
+                    for feed in feeds:
+                        Article.query.filter_by(feed_id=feed.id).delete()
+                    
+                    # Then delete all feeds
                     Feed.query.filter_by(user_id=user.id).delete()
-                    # Then delete the user
+                    
+                    # Finally delete the user
                     db.session.delete(user)
                     deleted_count += 1
+                    db.session.commit()
                 except Exception as e:
                     logger.error(f"Error deleting expired account {user.id}: {str(e)}")
                     db.session.rollback()
