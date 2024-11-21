@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def cleanup_expired_accounts():
     """Delete unverified accounts with expired verification tokens."""
     from app import app, db
-    from models import User
+    from models import User, Feed
     from datetime import datetime
     
     with app.app_context():
@@ -29,10 +29,14 @@ def cleanup_expired_accounts():
             deleted_count = 0
             for user in expired_accounts:
                 try:
+                    # Delete all associated feeds first
+                    Feed.query.filter_by(user_id=user.id).delete()
+                    # Then delete the user
                     db.session.delete(user)
                     deleted_count += 1
                 except Exception as e:
                     logger.error(f"Error deleting expired account {user.id}: {str(e)}")
+                    db.session.rollback()
                     continue
             
             if deleted_count > 0:
@@ -41,6 +45,7 @@ def cleanup_expired_accounts():
                 
         except Exception as e:
             logger.error(f"Error in cleanup_expired_accounts: {str(e)}")
+            db.session.rollback()
             raise
 
 def process_feeds(feeds=None):
