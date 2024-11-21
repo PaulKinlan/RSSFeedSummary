@@ -11,7 +11,40 @@ from urllib.parse import urlparse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def cleanup_expired_accounts():
+    """Delete unverified accounts with expired verification tokens."""
+    from app import app, db
+    from models import User
+    from datetime import datetime
+    
+    with app.app_context():
+        try:
+            # Find unverified accounts with expired tokens
+            expired_accounts = User.query.filter(
+                User.email_verified == False,
+                User.verification_token.is_not(None),
+                User.verification_token_expires <= datetime.utcnow()
+            ).all()
+            
+            deleted_count = 0
+            for user in expired_accounts:
+                try:
+                    db.session.delete(user)
+                    deleted_count += 1
+                except Exception as e:
+                    logger.error(f"Error deleting expired account {user.id}: {str(e)}")
+                    continue
+            
+            if deleted_count > 0:
+                db.session.commit()
+                logger.info(f"Deleted {deleted_count} expired unverified accounts")
+                
+        except Exception as e:
+            logger.error(f"Error in cleanup_expired_accounts: {str(e)}")
+            raise
+
 def process_feeds(feeds=None):
+
     """Process RSS feeds and generate summaries for new articles."""
     from app import app, db
     
@@ -176,6 +209,13 @@ def schedule_tasks():
             except Exception as e:
                 logger.error(f"Error sending weekly digest: {str(e)}")
     
+    def cleanup_expired_accounts_with_context():
+        with app.app_context():
+            try:
+                cleanup_expired_accounts()
+            except Exception as e:
+                logger.error(f"Error cleaning up expired accounts: {str(e)}")
+    
     try:
         # Remove existing jobs if they exist
         for job_id in ['process_feeds', 'send_daily_digest', 'send_weekly_digest']:
@@ -224,6 +264,20 @@ def schedule_tasks():
             coalesce=True
         )
         logger.info("Scheduled weekly digest task")
+        
+        # Schedule cleanup of expired unverified accounts (every 6 hours)
+        scheduler.add_job(
+            func=cleanup_expired_accounts_with_context,
+            trigger='interval',
+            hours=6,
+            id='cleanup_expired_accounts',
+            replace_existing=True,
+            next_run_time=datetime.now(),
+            misfire_grace_time=900,  # 15 minutes grace time
+            coalesce=True,
+            max_instances=1
+        )
+        logger.info("Scheduled expired accounts cleanup task")
         
     except Exception as e:
         logger.error(f"Error scheduling tasks: {str(e)}")
