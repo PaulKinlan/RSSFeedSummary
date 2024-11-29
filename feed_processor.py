@@ -1,3 +1,14 @@
+import os
+import feedparser
+import logging
+from datetime import datetime, timedelta
+from urllib.parse import urlparse
+from app import scheduler, db
+from models import User, Feed, Article
+from email_service import send_daily_digest, send_weekly_digest
+from ai_summarizer import generate_summary, get_or_create_tag, get_or_create_category
+
+logger = logging.getLogger(__name__)
 import feedparser
 from datetime import datetime, timedelta
 import logging
@@ -14,8 +25,11 @@ logger = logging.getLogger(__name__)
 def cleanup_expired_accounts():
     """Delete unverified accounts with expired verification tokens."""
     from app import app, db
-    from models import User, Feed
+    from models import User, Feed, Article
     from datetime import datetime
+    import logging
+
+    logger = logging.getLogger(__name__)
     
     with app.app_context():
         try:
@@ -26,29 +40,48 @@ def cleanup_expired_accounts():
                 User.verification_token_expires <= datetime.utcnow()
             ).all()
             
+            if not expired_accounts:
+                logger.info("No expired unverified accounts found")
+                return
+                
+            logger.info(f"Found {len(expired_accounts)} expired unverified accounts to be cleaned up")
+            logger.info("Starting cleanup process...")
             deleted_count = 0
+            
             for user in expired_accounts:
                 try:
-                    # Delete all associated articles first
+                    logger.info(f"Processing expired account - User ID: {user.id}, Email: {user.email}")
+                    
+                    # Count associated data for logging
                     feeds = Feed.query.filter_by(user_id=user.id).all()
+                    feed_count = len(feeds)
+                    article_count = 0
+                    
+                    # Delete all associated articles first
                     for feed in feeds:
-                        Article.query.filter_by(feed_id=feed.id).delete()
+                        count = Article.query.filter_by(feed_id=feed.id).delete()
+                        article_count += count
+                        logger.info(f"Deleted {count} articles for feed ID: {feed.id}")
                     
                     # Then delete all feeds
                     Feed.query.filter_by(user_id=user.id).delete()
+                    logger.info(f"Deleted {feed_count} feeds for user ID: {user.id}")
                     
                     # Finally delete the user
                     db.session.delete(user)
                     deleted_count += 1
+                    
+                    # Commit after each successful user deletion
                     db.session.commit()
+                    logger.info(f"Successfully deleted expired unverified user ID: {user.id} with {feed_count} feeds and {article_count} articles")
+                    
                 except Exception as e:
                     logger.error(f"Error deleting expired account {user.id}: {str(e)}")
                     db.session.rollback()
                     continue
             
-            if deleted_count > 0:
-                db.session.commit()
-                logger.info(f"Deleted {deleted_count} expired unverified accounts")
+            logger.info(f"Cleanup completed: Deleted {deleted_count} expired unverified accounts")
+            logger.info(f"Cleanup completed at: {datetime.utcnow()}")
                 
         except Exception as e:
             logger.error(f"Error in cleanup_expired_accounts: {str(e)}")

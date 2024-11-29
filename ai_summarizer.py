@@ -1,9 +1,11 @@
 import os
 import google.generativeai as genai
+import logging
 from typing import Optional, Dict
 from models import User, Tag, Category, db
 
-# Configure Gemini API
+# Configure logging and Gemini API
+logger = logging.getLogger(__name__)
 genai.configure(api_key=os.environ['GOOGLE_GEMINI_API_KEY'])
 model = genai.GenerativeModel('gemini-pro')
 
@@ -20,13 +22,23 @@ def get_or_create_tag(name: str) -> Optional[Tag]:
         db.session.add(tag)
     return tag
 
-def get_or_create_category(name: str, description: str = None) -> Category:
-    """Get existing category or create a new one"""
-    category = Category.query.filter_by(name=name.lower().strip()).first()
-    if not category:
-        category = Category(name=name.lower().strip(), description=description)
-        db.session.add(category)
-    return category
+def get_or_create_category(name: str, description: str = None) -> Optional[Category]:
+    """Get existing category or create a new one with proper validation"""
+    if not name:
+        return None
+        
+    # Clean and truncate category name
+    cleaned_name = name.lower().strip()[:50]  # Truncate to match database column length
+    
+    try:
+        category = Category.query.filter_by(name=cleaned_name).first()
+        if not category:
+            category = Category(name=cleaned_name, description=description)
+            db.session.add(category)
+        return category
+    except Exception as e:
+        logger.error(f"Error creating category '{cleaned_name}': {str(e)}")
+        return None
 
 def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str, str]]:
     try:
@@ -91,7 +103,9 @@ def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str,
                     parts[current_section] = [tag for tag in tags if Tag.clean_tag_name(tag)]
                 elif line.startswith('Categories:'):
                     current_section = 'categories'
-                    parts[current_section] = [cat.strip() for cat in line.replace('Categories:', '').strip().split(',')]
+                    categories = [cat.strip() for cat in line.replace('Categories:', '').strip().split(',')]
+                    # Only keep valid category names
+                    parts[current_section] = [cat for cat in categories if cat and len(cat) <= 50]
                 elif line.startswith('Critique:'):
                     current_section = 'critique'
                     parts[current_section] = line.replace('Critique:', '').strip()
@@ -106,5 +120,5 @@ def generate_summary(title: str, content: str, user: User) -> Optional[Dict[str,
         }
             
     except Exception as e:
-        print(f"Error generating summary: {str(e)}")
+        logger.error(f"Error generating summary: {str(e)}")
         return None
