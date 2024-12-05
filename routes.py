@@ -286,6 +286,26 @@ def manage_feeds():
     feeds = Feed.query.filter_by(user_id=current_user.id).all()
     return render_template('feed_manage.html', feeds=feeds)
 
+
+@app.route('/feeds/health')
+@login_required
+def feed_health_dashboard():
+    # Get all feeds for the current user
+    feeds = Feed.query.filter_by(user_id=current_user.id).all()
+    
+    # Calculate overall statistics
+    total_feeds = len(feeds)
+    active_feeds = sum(1 for feed in feeds if feed.status == 'active')
+    error_feeds = sum(1 for feed in feeds if feed.status == 'error')
+    total_articles = sum(feed.total_articles_processed or 0 for feed in feeds)
+    
+    return render_template('health_dashboard.html',
+                         feeds=feeds,
+                         total_feeds=total_feeds,
+                         active_feeds=active_feeds,
+                         error_feeds=error_feeds,
+                         total_articles=total_articles)
+
 @app.route('/feeds/import-opml', methods=['POST'])
 @login_required
 def import_opml():

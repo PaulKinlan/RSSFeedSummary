@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Feed Health Dashboard</h2>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Overall System Statistics</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3">
+                            <h6>Total Feeds</h6>
+                            <h3>{{ total_feeds }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3">
+                            <h6>Active Feeds</h6>
+                            <h3>{{ active_feeds }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3">
+                            <h6>Errored Feeds</h6>
+                            <h3>{{ error_feeds }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3">
+                            <h6>Total Articles</h6>
+                            <h3>{{ total_articles }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Feed Health Status</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Feed</th>
+                                <th>Health Score</th>
+                                <th>Articles</th>
+                                <th>Processing Time</th>
+                                <th>Success Rate</th>
+                                <th>Last Successful</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for feed in feeds %}
+                            <tr>
+                                <td>{{ feed.title or feed.url }}</td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress-bar {% if feed.health_score >= 80 %}bg-success{% elif feed.health_score >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                                             role="progressbar"
+                                             style="width: {{ feed.health_score }}%"
+                                             aria-valuenow="{{ feed.health_score }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            {{ "%.1f"|format(feed.health_score) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ feed.total_articles_processed }}</td>
+                                <td>{{ "%.2f"|format(feed.average_processing_time) }}s</td>
+                                <td>{{ "%.1f"|format(feed.success_count / (feed.success_count + feed.failure_count) * 100 if (feed.success_count + feed.failure_count) > 0 else 0) }}%</td>
+                                <td>{{ feed.last_successful_process.strftime('%Y-%m-%d %H:%M') if feed.last_successful_process else 'Never' }}</td>
+                                <td>
+                                    {% if feed.status == 'active' %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% elif feed.status == 'pending' %}
+                                    <span class="badge bg-info">Pending</span>
+                                    {% else %}
+                                    <span class="badge bg-danger" title="{{ feed.error_message }}">Error</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
