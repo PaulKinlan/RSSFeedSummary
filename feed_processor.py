@@ -3,6 +3,7 @@ import feedparser
 import logging
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
+from sqlalchemy import or_
 from app import scheduler, db
 from models import User, Feed, Article
 from email_service import send_daily_digest, send_weekly_digest
@@ -96,10 +97,25 @@ def process_feeds(feeds=None):
     with app.app_context():
         try:
             if feeds is None:
-                feeds = Feed.query.all()
+                # Only get feeds for verified and unexpired accounts
+                feeds = Feed.query.join(User).filter(
+                    User.email_verified == True,
+                    or_(
+                        User.verification_token.is_(None),
+                        User.verification_token_expires > datetime.utcnow()
+                    )
+                ).all()
                 feed_ids = [feed.id for feed in feeds]
             else:
-                feed_ids = [feed.id for feed in feeds]
+                # For specific feeds, still check if they belong to valid accounts
+                feed_ids = []
+                for feed in feeds:
+                    user = User.query.get(feed.user_id)
+                    if user and user.email_verified and (
+                        user.verification_token is None or 
+                        user.verification_token_expires > datetime.utcnow()
+                    ):
+                        feed_ids.append(feed.id)
             
             for feed_id in feed_ids:
                 try:
