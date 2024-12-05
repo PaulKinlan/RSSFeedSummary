@@ -89,9 +89,8 @@ def cleanup_expired_accounts():
             db.session.rollback()
             raise
 
-def process_feeds(feeds=None):
-
-    """Process RSS feeds and generate summaries for new articles."""
+def process_feeds(feeds=None, max_retries=3):
+    """Process RSS feeds and generate summaries for new articles with retry mechanism."""
     from app import app, db
     
     with app.app_context():
@@ -104,6 +103,11 @@ def process_feeds(feeds=None):
                         User.verification_token.is_(None),
                         User.verification_token_expires > datetime.utcnow()
                     )
+                ).filter(
+                    or_(
+                        Feed.processing_attempts < max_retries,  # Still within retry limit
+                        Feed.status == 'active'  # Or currently active feeds
+                    )
                 ).all()
                 feed_ids = [feed.id for feed in feeds]
             else:
@@ -114,7 +118,7 @@ def process_feeds(feeds=None):
                     if user and user.email_verified and (
                         user.verification_token is None or 
                         user.verification_token_expires > datetime.utcnow()
-                    ):
+                    ) and (feed.processing_attempts < max_retries or feed.status == 'active'):
                         feed_ids.append(feed.id)
             
             for feed_id in feed_ids:
@@ -217,6 +221,27 @@ def process_feeds(feeds=None):
                         feed.error_message = str(e)
                         feed.failure_count += 1
                         feed.last_failed_process = datetime.utcnow()
+                        
+                        # Calculate next retry time with exponential backoff
+                        retry_delay = min(2 ** (feed.processing_attempts - 1) * 300, 3600)  # Max 1 hour delay
+                        next_retry = datetime.utcnow() + timedelta(seconds=retry_delay)
+                        
+                        if feed.processing_attempts >= 3:  # Max retries reached
+                            feed.status = 'error'
+                            logger.warning(f"Feed {feed_id} has reached maximum retry attempts")
+                        else:
+                            # Schedule retry with exponential backoff
+                            scheduler.add_job(
+                                func=schedule_feed_processing,
+                                args=[feed_id],
+                                trigger='date',
+                                run_date=next_retry,
+                                id=f'retry_feed_{feed_id}',
+                                replace_existing=True,
+                                misfire_grace_time=300
+                            )
+                            logger.info(f"Scheduled retry for feed {feed_id} at {next_retry}")
+                        
                         db.session.commit()
                     continue
             
