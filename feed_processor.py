@@ -122,6 +122,10 @@ def process_feeds(feeds=None):
                     feed = Feed.query.get(feed_id)
                     if not feed:
                         continue
+                    
+                    # Increment processing attempts
+                    feed.processing_attempts += 1
+                    db.session.commit()
                         
                     logger.info(f"Processing feed: {feed.url}")
                     parsed_feed = feedparser.parse(feed.url)
@@ -200,6 +204,8 @@ def process_feeds(feeds=None):
                     if feed and processed_count > 0:
                         feed.status = 'active'
                         feed.error_message = None
+                        feed.success_count += 1
+                        feed.last_successful_process = datetime.utcnow()
                         db.session.commit()
                         logger.info(f"Feed {feed.url} marked as active")
                     
@@ -209,6 +215,8 @@ def process_feeds(feeds=None):
                     if feed:
                         feed.status = 'error'
                         feed.error_message = str(e)
+                        feed.failure_count += 1
+                        feed.last_failed_process = datetime.utcnow()
                         db.session.commit()
                     continue
             

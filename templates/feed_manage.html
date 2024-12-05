@@ -60,6 +60,7 @@
                         <th>URL</th>
                         <th>Last Checked</th>
                         <th>Status</th>
+                        <th>Processing Stats</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -80,6 +81,16 @@
                             {% else %}
                             <span class="badge bg-danger" title="{{ feed.error_message }}">Error</span>
                             {% endif %}
+                        </td>
+                        <td>
+                            <small>
+                                Attempts: {{ feed.processing_attempts }}<br>
+                                Success: {{ feed.success_count }}<br>
+                                Failures: {{ feed.failure_count }}<br>
+                                {% if feed.last_successful_process %}
+                                Last Success: {{ feed.last_successful_process.strftime('%Y-%m-%d %H:%M') }}
+                                {% endif %}
+                            </small>
                         </td>
                         <td>
                             <form method="POST" action="{{ url_for('delete_feed', feed_id=feed.id) }}"

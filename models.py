@@ -45,6 +45,13 @@ class Feed(db.Model):
     error_message = db.Column(db.Text)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     articles = db.relationship('Article', backref='feed', lazy=True, cascade='all, delete-orphan')
+    
+    # Feed processing status tracking
+    processing_attempts = db.Column(db.Integer, default=0)
+    last_successful_process = db.Column(db.DateTime)
+    last_failed_process = db.Column(db.DateTime)
+    success_count = db.Column(db.Integer, default=0)
+    failure_count = db.Column(db.Integer, default=0)
 
 # Association tables for many-to-many relationships
 article_tags = db.Table('article_tags',
