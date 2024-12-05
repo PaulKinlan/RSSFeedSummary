@@ -10,27 +10,34 @@
                 <h5 class="card-title">Overall System Statistics</h5>
                 <div class="row">
                     <div class="col-md-3">
-                        <div class="stat-card text-center p-3">
+                        <div class="stat-card text-center p-3 border rounded">
+                            <i data-feather="rss" class="mb-2" style="width: 32px; height: 32px;"></i>
                             <h6>Total Feeds</h6>
                             <h3>{{ total_feeds }}</h3>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="stat-card text-center p-3">
+                        <div class="stat-card text-center p-3 border rounded">
+                            <i data-feather="check-circle" class="mb-2 text-success" style="width: 32px; height: 32px;"></i>
                             <h6>Active Feeds</h6>
                             <h3>{{ active_feeds }}</h3>
+                            <small class="text-muted">{{ "%.1f"|format(active_feeds / total_feeds * 100 if total_feeds > 0 else 0) }}% healthy</small>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="stat-card text-center p-3">
+                        <div class="stat-card text-center p-3 border rounded">
+                            <i data-feather="alert-triangle" class="mb-2 text-danger" style="width: 32px; height: 32px;"></i>
                             <h6>Errored Feeds</h6>
                             <h3>{{ error_feeds }}</h3>
+                            <small class="text-muted">{{ "%.1f"|format(error_feeds / total_feeds * 100 if total_feeds > 0 else 0) }}% need attention</small>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="stat-card text-center p-3">
+                        <div class="stat-card text-center p-3 border rounded">
+                            <i data-feather="file-text" class="mb-2 text-info" style="width: 32px; height: 32px;"></i>
                             <h6>Total Articles</h6>
                             <h3>{{ total_articles }}</h3>
+                            <small class="text-muted">processed successfully</small>
                         </div>
                     </div>
                 </div>
@@ -43,9 +50,16 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Feed Health Status</h5>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="card-title mb-0">Feed Health Status</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary active">All</button>
+                        <button class="btn btn-sm btn-outline-success">Active</button>
+                        <button class="btn btn-sm btn-outline-danger">Errored</button>
+                    </div>
+                </div>
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Feed</th>
@@ -60,9 +74,14 @@
                         <tbody>
                             {% for feed in feeds %}
                             <tr>
-                                <td>{{ feed.title or feed.url }}</td>
                                 <td>
-                                    <div class="progress">
+                                    <div class="text-truncate" style="max-width: 300px;" title="{{ feed.url }}">
+                                        <i data-feather="rss" class="me-1"></i>
+                                        {{ feed.title or feed.url }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
                                         <div class="progress-bar {% if feed.health_score >= 80 %}bg-success{% elif feed.health_score >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
                                              role="progressbar"
                                              style="width: {{ feed.health_score }}%"
@@ -73,17 +92,53 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td>{{ feed.total_articles_processed }}</td>
-                                <td>{{ "%.2f"|format(feed.average_processing_time) }}s</td>
-                                <td>{{ "%.1f"|format(feed.success_count / (feed.success_count + feed.failure_count) * 100 if (feed.success_count + feed.failure_count) > 0 else 0) }}%</td>
-                                <td>{{ feed.last_successful_process.strftime('%Y-%m-%d %H:%M') if feed.last_successful_process else 'Never' }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2">{{ feed.total_articles_processed }}</span>
+                                        {% if feed.total_articles_processed > 0 %}
+                                        <i data-feather="trending-up" class="text-success"></i>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ "%.2f"|format(feed.average_processing_time) }}s</span>
+                                </td>
+                                <td>
+                                    {% set success_rate = feed.success_count / (feed.success_count + feed.failure_count) * 100 if (feed.success_count + feed.failure_count) > 0 else 0 %}
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2">{{ "%.1f"|format(success_rate) }}%</span>
+                                        {% if success_rate >= 80 %}
+                                        <i data-feather="thumbs-up" class="text-success"></i>
+                                        {% elif success_rate < 50 %}
+                                        <i data-feather="thumbs-down" class="text-danger"></i>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if feed.last_successful_process %}
+                                    <span title="{{ feed.last_successful_process.strftime('%Y-%m-%d %H:%M') }}">
+                                        {{ feed.last_successful_process.strftime('%Y-%m-%d %H:%M') }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">Never</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if feed.status == 'active' %}
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge bg-success">
+                                        <i data-feather="check" class="me-1"></i>
+                                        Active
+                                    </span>
                                     {% elif feed.status == 'pending' %}
-                                    <span class="badge bg-info">Pending</span>
+                                    <span class="badge bg-info">
+                                        <i data-feather="clock" class="me-1"></i>
+                                        Pending
+                                    </span>
                                     {% else %}
-                                    <span class="badge bg-danger" title="{{ feed.error_message }}">Error</span>
+                                    <span class="badge bg-danger" data-bs-toggle="tooltip" title="{{ feed.error_message }}">
+                                        <i data-feather="alert-circle" class="me-1"></i>
+                                        Error
+                                    </span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -95,4 +150,12 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
 {% endblock %}
