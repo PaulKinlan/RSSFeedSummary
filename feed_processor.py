@@ -98,17 +98,17 @@ def process_feeds(feeds=None, max_retries=3):
             if feeds is None:
                 # Only get feeds for verified and unexpired accounts
                 feeds = Feed.query.join(User).filter(
-                    User.email_verified == True,
+                    User.email_verified == True,  # Only verified users
                     or_(
-                        User.verification_token.is_(None),
-                        User.verification_token_expires > datetime.utcnow()
+                        User.verification_token.is_(None),  # Users that completed verification
+                        User.verification_token_expires > datetime.utcnow()  # Users still within verification window
                     )
                 ).filter(
                     or_(
                         Feed.processing_attempts < max_retries,  # Still within retry limit
                         Feed.status == 'active'  # Or currently active feeds
                     )
-                ).all()
+                ).order_by(Feed.last_checked.asc().nullsfirst()).all()
                 feed_ids = [feed.id for feed in feeds]
             else:
                 # For specific feeds, still check if they belong to valid accounts
