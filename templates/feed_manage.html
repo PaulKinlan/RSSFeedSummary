@@ -84,9 +84,16 @@
                         </td>
                         <td>
                             <small>
+                                Articles: {{ feed.total_articles_processed }}<br>
                                 Attempts: {{ feed.processing_attempts }}<br>
                                 Success: {{ feed.success_count }}<br>
                                 Failures: {{ feed.failure_count }}<br>
+                                {% if feed.average_processing_time %}
+                                Avg. Time: {{ "%.2f"|format(feed.average_processing_time) }}s<br>
+                                {% endif %}
+                                {% if feed.health_score %}
+                                Health: {{ "%.1f"|format(feed.health_score) }}%<br>
+                                {% endif %}
                                 {% if feed.last_successful_process %}
                                 Last Success: {{ feed.last_successful_process.strftime('%Y-%m-%d %H:%M') }}
                                 {% endif %}
