@@ -92,9 +92,11 @@ def cleanup_expired_accounts():
 def process_feeds(feeds=None, max_retries=3):
     """Process RSS feeds and generate summaries for new articles with retry mechanism."""
     from app import app, db
+    import time
     
     with app.app_context():
         try:
+            start_time = time.time()
             if feeds is None:
                 # Only get feeds for verified and unexpired accounts
                 feeds = Feed.query.join(User).filter(
@@ -203,24 +205,52 @@ def process_feeds(feeds=None, max_retries=3):
                             logger.error(f"Error processing entry: {str(e)}")
                             continue
                     
-                    # Update feed status
+                    # Update feed status and metrics
                     feed = Feed.query.get(feed_id)
                     if feed and processed_count > 0:
+                        end_time = time.time()
+                        processing_duration = end_time - start_time
+                        
                         feed.status = 'active'
                         feed.error_message = None
                         feed.success_count += 1
                         feed.last_successful_process = datetime.utcnow()
+                        
+                        # Update processing metrics
+                        feed.total_articles_processed += processed_count
+                        feed.last_processing_duration = processing_duration
+                        
+                        # Calculate average processing time
+                        if feed.average_processing_time == 0:
+                            feed.average_processing_time = processing_duration
+                        else:
+                            feed.average_processing_time = (feed.average_processing_time + processing_duration) / 2
+                        
+                        # Calculate health score (0-100) based on success rate
+                        total_attempts = feed.success_count + feed.failure_count
+                        if total_attempts > 0:
+                            feed.health_score = (feed.success_count / total_attempts) * 100
+                        
                         db.session.commit()
-                        logger.info(f"Feed {feed.url} marked as active")
+                        logger.info(f"Feed {feed.url} marked as active (processed {processed_count} articles in {processing_duration:.2f}s)")
                     
                 except Exception as e:
                     logger.error(f"Error processing feed {feed_id}: {str(e)}")
                     feed = Feed.query.get(feed_id)
                     if feed:
+                        end_time = time.time()
+                        processing_duration = end_time - start_time
+                        
                         feed.status = 'error'
                         feed.error_message = str(e)
                         feed.failure_count += 1
                         feed.last_failed_process = datetime.utcnow()
+                        feed.last_processing_duration = processing_duration
+                        
+                        # Update health score on failure
+                        total_attempts = feed.success_count + feed.failure_count
+                        if total_attempts > 0:
+                            feed.health_score = (feed.success_count / total_attempts) * 100
                         
                         # Calculate next retry time with exponential backoff
                         retry_delay = min(2 ** (feed.processing_attempts - 1) * 300, 3600)  # Max 1 hour delay

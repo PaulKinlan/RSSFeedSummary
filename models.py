@@ -52,6 +52,12 @@ class Feed(db.Model):
     last_failed_process = db.Column(db.DateTime)
     success_count = db.Column(db.Integer, default=0)
     failure_count = db.Column(db.Integer, default=0)
+    
+    # Additional monitoring metrics
+    total_articles_processed = db.Column(db.Integer, default=0)
+    average_processing_time = db.Column(db.Float, default=0.0)  # in seconds
+    last_processing_duration = db.Column(db.Float)  # in seconds
+    health_score = db.Column(db.Float, default=100.0)  # 0-100 score based on success rate
 
 # Association tables for many-to-many relationships
 article_tags = db.Table('article_tags',
