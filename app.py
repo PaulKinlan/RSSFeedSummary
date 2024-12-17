@@ -58,14 +58,26 @@ scheduler = BackgroundScheduler({
 
 def handle_scheduler_error(event):
     logger.error(f"Scheduler error: Job {event.job_id} failed with {event.exception}")
+    # Log additional context about the failed job
+    try:
+        job = scheduler.get_job(event.job_id)
+        if job:
+            logger.error(f"Failed job details - Name: {job.name}, Trigger: {job.trigger}, "
+                        f"Next run: {job.next_run_time}")
+    except Exception as e:
+        logger.error(f"Error getting failed job details: {str(e)}")
     
 def handle_job_missed(event):
     logger.warning(f"Job missed: {event.job_id} scheduled at {event.scheduled_run_time}")
     # Reschedule missed jobs if needed
     try:
         job = scheduler.get_job(event.job_id)
-        if job and not job.next_run_time:
-            job.reschedule()
+        if job:
+            logger.warning(f"Missed job details - Name: {job.name}, Trigger: {job.trigger}, "
+                          f"Next run: {job.next_run_time}")
+            if not job.next_run_time:
+                job.reschedule()
+                logger.info(f"Rescheduled missed job {event.job_id} for next run at {job.next_run_time}")
     except Exception as e:
         logger.error(f"Error rescheduling missed job {event.job_id}: {str(e)}")
 
@@ -116,16 +128,35 @@ with app.app_context():
         db.create_all()
         logger.info("Database tables initialized successfully")
         
-        # Add scheduler event listeners
+        # Add scheduler event listeners with enhanced monitoring
         scheduler.add_listener(handle_scheduler_error, EVENT_JOB_ERROR)
         scheduler.add_listener(handle_job_missed, EVENT_JOB_MISSED)
         
         # Start scheduler if not already running
         if not scheduler.running:
-            scheduler.start()
-            # Schedule initial tasks
-            schedule_tasks()
-            logger.info("Scheduler started and tasks initialized")
+            try:
+                scheduler.start()
+                # Schedule initial tasks
+                schedule_tasks()
+                
+                # Log scheduler state and jobs
+                jobs = scheduler.get_jobs()
+                logger.info(f"Scheduler started successfully with {len(jobs)} jobs")
+                for job in jobs:
+                    logger.info(f"Active job: {job.id} - Next run: {job.next_run_time}")
+                    
+                # Verify feed processing job is scheduled
+                feed_job = scheduler.get_job('process_feeds')
+                if feed_job:
+                    logger.info(f"Feed processing scheduled to run next at: {feed_job.next_run_time}")
+                else:
+                    logger.error("Feed processing job not found in scheduler!")
+                    
+            except Exception as e:
+                logger.error(f"Failed to start scheduler: {str(e)}")
+                raise
+        else:
+            logger.info("Scheduler already running, skipping initialization")
             
             # Register shutdown handler with proper cleanup
             def cleanup():

@@ -97,9 +97,11 @@ def process_feeds(feeds=None, max_retries=3):
     with app.app_context():
         try:
             start_time = time.time()
+            logger.info("Starting feed processing cycle")
+            
             if feeds is None:
                 # Only get feeds for verified and unexpired accounts
-                feeds = Feed.query.join(User).filter(
+                query = Feed.query.join(User).filter(
                     User.email_verified == True,  # Only verified users
                     or_(
                         User.verification_token.is_(None),  # Users that completed verification
@@ -110,8 +112,11 @@ def process_feeds(feeds=None, max_retries=3):
                         Feed.processing_attempts < max_retries,  # Still within retry limit
                         Feed.status == 'active'  # Or currently active feeds
                     )
-                ).order_by(Feed.last_checked.asc().nullsfirst()).all()
+                ).order_by(Feed.last_checked.asc().nullsfirst())
+                
+                feeds = query.all()
                 feed_ids = [feed.id for feed in feeds]
+                logger.info(f"Found {len(feeds)} feeds to process from verified and unexpired accounts")
             else:
                 # For specific feeds, still check if they belong to valid accounts
                 feed_ids = []
@@ -127,14 +132,21 @@ def process_feeds(feeds=None, max_retries=3):
                 try:
                     feed = Feed.query.get(feed_id)
                     if not feed:
+                        logger.warning(f"Feed {feed_id} not found, skipping")
                         continue
+                    
+                    # Log processing attempt details
+                    logger.info(f"Processing feed ID {feed_id}: {feed.url}")
+                    logger.info(f"Previous attempts: {feed.processing_attempts}, Status: {feed.status}")
                     
                     # Increment processing attempts
                     feed.processing_attempts += 1
                     db.session.commit()
-                        
-                    logger.info(f"Processing feed: {feed.url}")
+                    
+                    process_start = time.time()
                     parsed_feed = feedparser.parse(feed.url)
+                    parse_time = time.time() - process_start
+                    logger.info(f"Feed parsing completed in {parse_time:.2f}s")
                     
                     if hasattr(parsed_feed.feed, 'title'):
                         feed.title = parsed_feed.feed.title[:200]  # Truncate feed title
@@ -315,36 +327,53 @@ def schedule_tasks():
     def process_with_context():
         with app.app_context():
             try:
+                logger.info("Starting scheduled feed processing...")
+                start_time = datetime.now()
                 process_feeds()
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Completed feed processing in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error in scheduled feed processing: {str(e)}")
     
     def send_daily_digest_with_context():
         with app.app_context():
             try:
+                logger.info("Starting daily digest email send...")
+                start_time = datetime.now()
                 send_daily_digest()
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Completed daily digest in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error sending daily digest: {str(e)}")
     
     def send_weekly_digest_with_context():
         with app.app_context():
             try:
+                logger.info("Starting weekly digest email send...")
+                start_time = datetime.now()
                 send_weekly_digest()
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Completed weekly digest in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error sending weekly digest: {str(e)}")
     
     def cleanup_expired_accounts_with_context():
         with app.app_context():
             try:
+                logger.info("Starting expired accounts cleanup...")
+                start_time = datetime.now()
                 cleanup_expired_accounts()
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Completed expired accounts cleanup in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error cleaning up expired accounts: {str(e)}")
     
     try:
         # Remove existing jobs if they exist
-        for job_id in ['process_feeds', 'send_daily_digest', 'send_weekly_digest']:
+        for job_id in ['process_feeds', 'send_daily_digest', 'send_weekly_digest', 'cleanup_expired_accounts']:
             try:
                 scheduler.remove_job(job_id)
+                logger.info(f"Removed existing job: {job_id}")
             except:
                 pass
         
@@ -352,15 +381,15 @@ def schedule_tasks():
         scheduler.add_job(
             func=process_with_context,
             trigger='interval',
-            hours=1,
+            minutes=60,  # Run every hour
             id='process_feeds',
             replace_existing=True,
-            next_run_time=datetime.now(),
+            next_run_time=datetime.now(),  # Run immediately on startup
             misfire_grace_time=900,  # 15 minutes grace time
             coalesce=True,
             max_instances=1
         )
-        logger.info("Scheduled feed processing task")
+        logger.info("Scheduled feed processing task to run every hour")
         
         # Schedule daily digest emails at midnight
         scheduler.add_job(
@@ -373,7 +402,7 @@ def schedule_tasks():
             misfire_grace_time=3600,  # 1 hour grace time
             coalesce=True
         )
-        logger.info("Scheduled daily digest task")
+        logger.info("Scheduled daily digest task for midnight")
         
         # Schedule weekly digest emails at midnight on Sundays
         scheduler.add_job(
@@ -387,7 +416,7 @@ def schedule_tasks():
             misfire_grace_time=3600,  # 1 hour grace time
             coalesce=True
         )
-        logger.info("Scheduled weekly digest task")
+        logger.info("Scheduled weekly digest task for Sunday midnight")
         
         # Schedule cleanup of expired unverified accounts (every 6 hours)
         scheduler.add_job(
@@ -401,8 +430,14 @@ def schedule_tasks():
             coalesce=True,
             max_instances=1
         )
-        logger.info("Scheduled expired accounts cleanup task")
+        logger.info("Scheduled expired accounts cleanup task to run every 6 hours")
         
+        # Log all scheduled jobs for monitoring
+        jobs = scheduler.get_jobs()
+        logger.info(f"Total scheduled jobs: {len(jobs)}")
+        for job in jobs:
+            logger.info(f"Job ID: {job.id}, Next run: {job.next_run_time}")
+            
     except Exception as e:
         logger.error(f"Error scheduling tasks: {str(e)}")
         raise
