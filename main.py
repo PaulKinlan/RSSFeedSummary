@@ -1,4 +1,5 @@
 import logging
+import time
 from app import app, scheduler
 from feed_processor import schedule_tasks
 from flask_login import LoginManager
@@ -18,24 +19,50 @@ def load_user(user_id):
 
 # Initialize scheduled tasks
 def init_scheduler():
+    """Initialize and configure the scheduler with proper monitoring."""
     try:
+        if scheduler.running:
+            logger.info("Scheduler is already running, verifying state...")
+            jobs = scheduler.get_jobs()
+            logger.info(f"Found {len(jobs)} active jobs")
+            for job in jobs:
+                logger.info(f"Active job: {job.id} - Next run: {job.next_run_time}")
+            return
+        
+        logger.info("Initializing scheduler...")
+        
+        # Start scheduler first
+        scheduler.start()
+        time.sleep(2)  # Wait for scheduler to initialize
+        
         if not scheduler.running:
-            logger.info("Initializing scheduler...")
+            raise RuntimeError("Scheduler failed to start")
+        
+        logger.info("Scheduler started successfully")
+        
+        # Schedule tasks with proper application context
+        with app.app_context():
             schedule_tasks()
-            if not scheduler.running:
-                scheduler.start()
-                logger.info("Scheduler started successfully")
-        else:
-            logger.info("Scheduler already running")
             
-        # Verify scheduler state
-        jobs = scheduler.get_jobs()
-        logger.info(f"Active scheduled jobs: {len(jobs)}")
-        for job in jobs:
-            logger.info(f"Job: {job.id} - Next run: {job.next_run_time}")
-            
+            # Verify scheduled tasks
+            jobs = scheduler.get_jobs()
+            logger.info(f"Scheduled {len(jobs)} jobs:")
+            for job in jobs:
+                logger.info(
+                    f"Job ID: {job.id}\n"
+                    f"  Function: {job.func.__name__}\n"
+                    f"  Next run: {job.next_run_time}\n"
+                    f"  Trigger: {job.trigger}"
+                )
+                
     except Exception as e:
         logger.error(f"Failed to initialize scheduler: {str(e)}")
+        if scheduler.running:
+            try:
+                scheduler.shutdown(wait=False)
+                logger.info("Scheduler shutdown completed during error handling")
+            except Exception as shutdown_error:
+                logger.error(f"Error shutting down scheduler: {str(shutdown_error)}")
         raise
 
 def find_free_port(start_port=5000, max_port=5100):
@@ -52,10 +79,17 @@ def find_free_port(start_port=5000, max_port=5100):
 
 if __name__ == "__main__":
     try:
-        # Initialize scheduler within app context
+        # Configure logging for startup
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        )
+        
+        logger.info("Starting RSS Feed Monitor application...")
+        
+        # Initialize scheduler before starting Flask
         with app.app_context():
             init_scheduler()
-            logger.info("Scheduler initialized successfully")
         
         # Find an available port
         port = find_free_port()
@@ -65,10 +99,13 @@ if __name__ == "__main__":
         app.run(
             host="0.0.0.0",
             port=port,
-            debug=False  # Disable debug mode in production
+            debug=False,  # Disable debug mode in production
+            use_reloader=False  # Prevent duplicate scheduler initialization
         )
+        
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
+        # Attempt graceful shutdown
         if scheduler and scheduler.running:
             try:
                 scheduler.shutdown(wait=False)
@@ -76,3 +113,11 @@ if __name__ == "__main__":
             except Exception as shutdown_error:
                 logger.error(f"Error shutting down scheduler: {shutdown_error}")
         raise
+    finally:
+        # Ensure scheduler is properly shutdown
+        if scheduler and scheduler.running:
+            try:
+                scheduler.shutdown(wait=False)
+                logger.info("Scheduler shutdown completed")
+            except Exception as e:
+                logger.error(f"Error during final scheduler shutdown: {str(e)}")

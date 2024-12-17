@@ -114,9 +114,15 @@ def process_feeds(feeds=None, max_retries=3):
                     )
                 ).order_by(Feed.last_checked.asc().nullsfirst())
                 
-                feeds = query.all()
-                feed_ids = [feed.id for feed in feeds]
-                logger.info(f"Found {len(feeds)} feeds to process from verified and unexpired accounts")
+                try:
+                    feeds = query.all()
+                    feed_ids = [feed.id for feed in feeds]
+                    logger.info(f"Found {len(feeds)} feeds to process from verified and unexpired accounts")
+                    logger.info(f"Feed IDs to process: {feed_ids}")
+                    logger.info("Starting feed processing cycle")
+                except Exception as e:
+                    logger.error(f"Error querying feeds: {str(e)}")
+                    raise
             else:
                 # For specific feeds, still check if they belong to valid accounts
                 feed_ids = []
