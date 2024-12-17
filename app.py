@@ -1,4 +1,6 @@
 import os
+import time
+from datetime import datetime, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -113,6 +115,16 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'login'
     
+    # Register cleanup handler at application creation
+    def cleanup():
+        try:
+            if scheduler and scheduler.running:
+                scheduler.shutdown(wait=False)
+                logger.info("Scheduler shutdown completed")
+        except Exception as e:
+            logger.error(f"Error during scheduler shutdown: {e}")
+    
+    atexit.register(cleanup)
     return app
 
 app = create_app()
@@ -135,36 +147,45 @@ with app.app_context():
         # Start scheduler if not already running
         if not scheduler.running:
             try:
+                # Start scheduler first
                 scheduler.start()
-                # Schedule initial tasks
-                schedule_tasks()
+                logger.info("APScheduler started successfully")
                 
-                # Log scheduler state and jobs
-                jobs = scheduler.get_jobs()
-                logger.info(f"Scheduler started successfully with {len(jobs)} jobs")
-                for job in jobs:
-                    logger.info(f"Active job: {job.id} - Next run: {job.next_run_time}")
+                # Wait a moment for scheduler to initialize
+                time.sleep(2)  # Increased wait time for better initialization
+                
+                # Schedule initial tasks with delay
+                def delayed_schedule():
+                    with app.app_context():
+                        schedule_tasks()
+                
+                # Add a delayed job to schedule tasks
+                scheduler.add_job(
+                    func=delayed_schedule,
+                    trigger='date',
+                    run_date=datetime.now() + timedelta(seconds=5),
+                    id='init_schedule',
+                    name='Initial Task Scheduler',
+                    misfire_grace_time=300
+                )
+                
+                # Verify scheduler started
+                if not scheduler.running:
+                    raise RuntimeError("Scheduler failed to start")
                     
-                # Verify feed processing job is scheduled
-                feed_job = scheduler.get_job('process_feeds')
-                if feed_job:
-                    logger.info(f"Feed processing scheduled to run next at: {feed_job.next_run_time}")
-                else:
-                    logger.error("Feed processing job not found in scheduler!")
-                    
+                logger.info("Initial scheduling job added successfully")
+                
             except Exception as e:
-                logger.error(f"Failed to start scheduler: {str(e)}")
+                logger.error(f"Failed to initialize scheduler: {str(e)}")
+                if scheduler and scheduler.running:
+                    scheduler.shutdown(wait=False)
                 raise
         else:
-            logger.info("Scheduler already running, skipping initialization")
-            
-            # Register shutdown handler with proper cleanup
-            def cleanup():
-                if scheduler.running:
-                    scheduler.shutdown(wait=True)
-                    logger.info("Scheduler shutdown completed")
-            
-            atexit.register(cleanup)
+            logger.info("Scheduler already running, verifying state...")
+            jobs = scheduler.get_jobs()
+            logger.info(f"Found {len(jobs)} active jobs")
+            for job in jobs:
+                logger.info(f"Active job: {job.id} - Next run: {job.next_run_time}")
             
     except Exception as e:
         logger.error(f"Error during initialization: {e}")

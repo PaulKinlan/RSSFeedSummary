@@ -38,18 +38,41 @@ def init_scheduler():
         logger.error(f"Failed to initialize scheduler: {str(e)}")
         raise
 
+def find_free_port(start_port=5000, max_port=5100):
+    """Find a free port to use for the Flask application."""
+    import socket
+    for port in range(start_port, max_port):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('0.0.0.0', port))
+                return port
+        except OSError:
+            continue
+    raise RuntimeError("Could not find a free port")
+
 if __name__ == "__main__":
     try:
+        # Initialize scheduler within app context
         with app.app_context():
-            # Initialize the scheduler
             init_scheduler()
+            logger.info("Scheduler initialized successfully")
+        
+        # Find an available port
+        port = find_free_port()
+        logger.info(f"Starting Flask application on port {port}")
         
         # Run the Flask application
         app.run(
             host="0.0.0.0",
-            port=5000,
+            port=port,
             debug=False  # Disable debug mode in production
         )
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
+        if scheduler and scheduler.running:
+            try:
+                scheduler.shutdown(wait=False)
+                logger.info("Scheduler shutdown completed during error handling")
+            except Exception as shutdown_error:
+                logger.error(f"Error shutting down scheduler: {shutdown_error}")
         raise

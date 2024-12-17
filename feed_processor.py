@@ -334,6 +334,8 @@ def schedule_tasks():
                 logger.info(f"Completed feed processing in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error in scheduled feed processing: {str(e)}")
+                # Re-raise to trigger the error listener
+                raise
     
     def send_daily_digest_with_context():
         with app.app_context():
@@ -345,6 +347,7 @@ def schedule_tasks():
                 logger.info(f"Completed daily digest in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error sending daily digest: {str(e)}")
+                raise
     
     def send_weekly_digest_with_context():
         with app.app_context():
@@ -356,6 +359,7 @@ def schedule_tasks():
                 logger.info(f"Completed weekly digest in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error sending weekly digest: {str(e)}")
+                raise
     
     def cleanup_expired_accounts_with_context():
         with app.app_context():
@@ -367,70 +371,76 @@ def schedule_tasks():
                 logger.info(f"Completed expired accounts cleanup in {duration:.2f} seconds")
             except Exception as e:
                 logger.error(f"Error cleaning up expired accounts: {str(e)}")
+                raise
     
     try:
-        # Remove existing jobs if they exist
-        for job_id in ['process_feeds', 'send_daily_digest', 'send_weekly_digest', 'cleanup_expired_accounts']:
+        # Check if jobs already exist and are running
+        existing_jobs = {job.id: job for job in scheduler.get_jobs()}
+        logger.info(f"Found existing jobs: {list(existing_jobs.keys())}")
+        
+        # Define job configurations
+        jobs_config = [
+            {
+                'id': 'process_feeds',
+                'func': process_with_context,
+                'trigger': 'interval',
+                'minutes': 60,
+                'next_run_time': datetime.now() + timedelta(seconds=30),  # Delay first run
+                'misfire_grace_time': 900,
+                'max_instances': 1,
+                'description': 'Feed processing task'
+            },
+            {
+                'id': 'send_daily_digest',
+                'func': send_daily_digest_with_context,
+                'trigger': 'cron',
+                'hour': 0,
+                'minute': 0,
+                'misfire_grace_time': 3600,
+                'description': 'Daily digest email task'
+            },
+            {
+                'id': 'send_weekly_digest',
+                'func': send_weekly_digest_with_context,
+                'trigger': 'cron',
+                'day_of_week': 'sun',
+                'hour': 0,
+                'minute': 0,
+                'misfire_grace_time': 3600,
+                'description': 'Weekly digest email task'
+            },
+            {
+                'id': 'cleanup_expired_accounts',
+                'func': cleanup_expired_accounts_with_context,
+                'trigger': 'interval',
+                'hours': 6,
+                'next_run_time': datetime.now() + timedelta(minutes=5),  # Delay first run
+                'misfire_grace_time': 900,
+                'max_instances': 1,
+                'description': 'Expired accounts cleanup task'
+            }
+        ]
+
+        # Schedule or update jobs
+        for config in jobs_config:
+            job_id = config.pop('id')
+            description = config.pop('description')
+            
             try:
-                scheduler.remove_job(job_id)
-                logger.info(f"Removed existing job: {job_id}")
-            except:
-                pass
-        
-        # Schedule feed processing every hour with improved settings
-        scheduler.add_job(
-            func=process_with_context,
-            trigger='interval',
-            minutes=60,  # Run every hour
-            id='process_feeds',
-            replace_existing=True,
-            next_run_time=datetime.now(),  # Run immediately on startup
-            misfire_grace_time=900,  # 15 minutes grace time
-            coalesce=True,
-            max_instances=1
-        )
-        logger.info("Scheduled feed processing task to run every hour")
-        
-        # Schedule daily digest emails at midnight
-        scheduler.add_job(
-            func=send_daily_digest_with_context,
-            trigger='cron',
-            hour=0,
-            minute=0,
-            id='send_daily_digest',
-            replace_existing=True,
-            misfire_grace_time=3600,  # 1 hour grace time
-            coalesce=True
-        )
-        logger.info("Scheduled daily digest task for midnight")
-        
-        # Schedule weekly digest emails at midnight on Sundays
-        scheduler.add_job(
-            func=send_weekly_digest_with_context,
-            trigger='cron',
-            day_of_week='sun',
-            hour=0,
-            minute=0,
-            id='send_weekly_digest',
-            replace_existing=True,
-            misfire_grace_time=3600,  # 1 hour grace time
-            coalesce=True
-        )
-        logger.info("Scheduled weekly digest task for Sunday midnight")
-        
-        # Schedule cleanup of expired unverified accounts (every 6 hours)
-        scheduler.add_job(
-            func=cleanup_expired_accounts_with_context,
-            trigger='interval',
-            hours=6,
-            id='cleanup_expired_accounts',
-            replace_existing=True,
-            next_run_time=datetime.now(),
-            misfire_grace_time=900,  # 15 minutes grace time
-            coalesce=True,
-            max_instances=1
-        )
-        logger.info("Scheduled expired accounts cleanup task to run every 6 hours")
+                if job_id in existing_jobs:
+                    logger.info(f"Job {job_id} ({description}) already exists, updating configuration")
+                    scheduler.reschedule_job(job_id=job_id, **config)
+                else:
+                    logger.info(f"Adding new job: {job_id} ({description})")
+                    scheduler.add_job(
+                        **config,
+                        id=job_id,
+                        replace_existing=True,
+                        coalesce=True
+                    )
+            except Exception as e:
+                logger.error(f"Failed to schedule job {job_id} ({description}): {str(e)}")
+                continue
         
         # Log all scheduled jobs for monitoring
         jobs = scheduler.get_jobs()
