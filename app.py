@@ -48,7 +48,12 @@ def monitor_job_states():
 
         for job in jobs:
             next_run = job.next_run_time
-            time_until_next = (next_run - datetime.now()).total_seconds() if next_run else None
+            if next_run:
+                # Convert to UTC for consistent comparison
+                current_time = datetime.now(next_run.tzinfo)
+                time_until_next = (next_run - current_time).total_seconds()
+            else:
+                time_until_next = None
 
             logger.info(
                 f"Job: {job.id}\n"
