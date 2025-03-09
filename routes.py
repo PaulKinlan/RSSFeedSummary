@@ -526,14 +526,16 @@ def webhook_feed_updated():
             # Find the feed in the database
             feed = Feed.query.filter_by(url=feed_url).first()
             if not feed:
-                logger.warning(f"Received webhook for unknown feed: {feed_url}")
+                logger.warning(
+                    f"Received webhook for unknown feed: {feed_url}")
                 response = jsonify({
                     'status': 'error',
                     'message': 'Unknown feed'
                 })
                 return make_response(response, 404)
 
-            logger.info(f"Processing webhook for feed: {feed.title} (ID: {feed.id})")
+            logger.info(
+                f"Processing webhook for feed: {feed.title} (ID: {feed.id})")
 
             # Process the feed (with webhook_triggered=True to handle it differently if needed)
             process_feeds([feed], webhook_triggered=True)
@@ -551,3 +553,9 @@ def webhook_feed_updated():
                 'message': 'Internal server error'
             })
             return make_response(response, 500)
+    # If request method is not GET or POST, return 405 Method Not Allowed
+    return make_response(
+        jsonify({
+            'status': 'error',
+            'message': 'Method Not Allowed'
+        }), 405)

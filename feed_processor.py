@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def cleanup_expired_accounts():
     """Delete unverified accounts with expired verification tokens."""
     from app import app, db
@@ -30,20 +31,23 @@ def cleanup_expired_accounts():
             expired_accounts = User.query.filter(
                 User.email_verified == False,
                 User.verification_token.is_not(None),
-                User.verification_token_expires <= datetime.utcnow()
-            ).all()
+                User.verification_token_expires <= datetime.utcnow()).all()
 
             if not expired_accounts:
                 logger.info("No expired unverified accounts found")
                 return
 
-            logger.info(f"Found {len(expired_accounts)} expired unverified accounts to be cleaned up")
+            logger.info(
+                f"Found {len(expired_accounts)} expired unverified accounts to be cleaned up"
+            )
             logger.info("Starting cleanup process...")
             deleted_count = 0
 
             for user in expired_accounts:
                 try:
-                    logger.info(f"Processing expired account - User ID: {user.id}, Email: {user.email}")
+                    logger.info(
+                        f"Processing expired account - User ID: {user.id}, Email: {user.email}"
+                    )
 
                     # Count associated data for logging
                     feeds = Feed.query.filter_by(user_id=user.id).all()
@@ -52,13 +56,16 @@ def cleanup_expired_accounts():
 
                     # Delete all associated articles first
                     for feed in feeds:
-                        count = Article.query.filter_by(feed_id=feed.id).delete()
+                        count = Article.query.filter_by(
+                            feed_id=feed.id).delete()
                         article_count += count
-                        logger.info(f"Deleted {count} articles for feed ID: {feed.id}")
+                        logger.info(
+                            f"Deleted {count} articles for feed ID: {feed.id}")
 
                     # Then delete all feeds
                     Feed.query.filter_by(user_id=user.id).delete()
-                    logger.info(f"Deleted {feed_count} feeds for user ID: {user.id}")
+                    logger.info(
+                        f"Deleted {feed_count} feeds for user ID: {user.id}")
 
                     # Finally delete the user
                     db.session.delete(user)
@@ -66,20 +73,26 @@ def cleanup_expired_accounts():
 
                     # Commit after each successful user deletion
                     db.session.commit()
-                    logger.info(f"Successfully deleted expired unverified user ID: {user.id} with {feed_count} feeds and {article_count} articles")
+                    logger.info(
+                        f"Successfully deleted expired unverified user ID: {user.id} with {feed_count} feeds and {article_count} articles"
+                    )
 
                 except Exception as e:
-                    logger.error(f"Error deleting expired account {user.id}: {str(e)}")
+                    logger.error(
+                        f"Error deleting expired account {user.id}: {str(e)}")
                     db.session.rollback()
                     continue
 
-            logger.info(f"Cleanup completed: Deleted {deleted_count} expired unverified accounts")
+            logger.info(
+                f"Cleanup completed: Deleted {deleted_count} expired unverified accounts"
+            )
             logger.info(f"Cleanup completed at: {datetime.utcnow()}")
 
         except Exception as e:
             logger.error(f"Error in cleanup_expired_accounts: {str(e)}")
             db.session.rollback()
             raise
+
 
 def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
     """Process RSS feeds and generate summaries for new articles with retry mechanism.
@@ -96,10 +109,12 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
     with app.app_context():
         try:
             start_time = time.time()
-            logger.info(f"Starting feed processing cycle (webhook triggered: {webhook_triggered})")
+            logger.info(
+                f"Starting feed processing cycle (webhook triggered: {webhook_triggered})"
+            )
 
             # Application URL for webhook callbacks
-            app_url = os.environ.get('APPLICATION_URL', 'https://rss-monitor.replit.app')
+            app_url = os.environ.get('APPLICATION_URL', 'https://tldr.express')
             callback_url = generate_callback_url(app_url)
 
             if feeds is None:
@@ -107,20 +122,24 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                 query = Feed.query.join(User).filter(
                     User.email_verified == True,  # Only verified users
                     or_(
-                        User.verification_token.is_(None),  # Users that completed verification
-                        User.verification_token_expires > datetime.utcnow()  # Users still within verification window
-                    )
-                ).filter(
-                    or_(
-                        Feed.processing_attempts < max_retries,  # Still within retry limit
-                        Feed.status == 'active'  # Or currently active feeds
-                    )
-                ).order_by(Feed.last_checked.asc().nullsfirst())
+                        User.verification_token.is_(
+                            None),  # Users that completed verification
+                        User.verification_token_expires > datetime.utcnow(
+                        )  # Users still within verification window
+                    )).filter(
+                        or_(
+                            Feed.processing_attempts
+                            < max_retries,  # Still within retry limit
+                            Feed.status ==
+                            'active'  # Or currently active feeds
+                        )).order_by(Feed.last_checked.asc().nullsfirst())
 
                 try:
                     feeds = query.all()
                     feed_ids = [feed.id for feed in feeds]
-                    logger.info(f"Found {len(feeds)} feeds to process from verified and unexpired accounts")
+                    logger.info(
+                        f"Found {len(feeds)} feeds to process from verified and unexpired accounts"
+                    )
                     logger.info(f"Feed IDs to process: {feed_ids}")
                 except Exception as e:
                     logger.error(f"Error querying feeds: {str(e)}")
@@ -131,9 +150,11 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                 for feed in feeds:
                     user = User.query.get(feed.user_id)
                     if user and user.email_verified and (
-                        user.verification_token is None or
-                        user.verification_token_expires > datetime.utcnow()
-                    ) and (feed.processing_attempts < max_retries or feed.status == 'active'):
+                            user.verification_token is None
+                            or user.verification_token_expires
+                            > datetime.utcnow()) and (
+                                feed.processing_attempts < max_retries
+                                or feed.status == 'active'):
                         feed_ids.append(feed.id)
 
             for feed_id in feed_ids:
@@ -145,7 +166,9 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
 
                     # Log processing attempt details
                     logger.info(f"Processing feed ID {feed_id}: {feed.url}")
-                    logger.info(f"Previous attempts: {feed.processing_attempts}, Status: {feed.status}")
+                    logger.info(
+                        f"Previous attempts: {feed.processing_attempts}, Status: {feed.status}"
+                    )
 
                     # Increment processing attempts
                     feed.processing_attempts += 1
@@ -157,9 +180,11 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                     logger.info(f"Feed parsing completed in {parse_time:.2f}s")
 
                     if hasattr(parsed_feed.feed, 'title'):
-                        feed.title = parsed_feed.feed.title[:200]  # Truncate feed title
+                        feed.title = parsed_feed.feed.title[:
+                                                            200]  # Truncate feed title
                     else:
-                        feed.title = urlparse(feed.url).netloc[:200]  # Truncate netloc
+                        feed.title = urlparse(
+                            feed.url).netloc[:200]  # Truncate netloc
 
                     feed.last_checked = datetime.utcnow()
 
@@ -171,13 +196,18 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                     # Register webhook if not already registered and not webhook triggered
                     if not webhook_triggered and not feed.webhook_id and callback_url:
                         try:
-                            webhook_response = register_webhook(feed.url, callback_url)
+                            webhook_response = register_webhook(
+                                feed.url, callback_url)
                             if webhook_response and 'id' in webhook_response:
                                 feed.webhook_id = webhook_response['id']
                                 db.session.commit()
-                                logger.info(f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}")
+                                logger.info(
+                                    f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}"
+                                )
                         except Exception as e:
-                            logger.error(f"Failed to register webhook for feed {feed.url}: {str(e)}")
+                            logger.error(
+                                f"Failed to register webhook for feed {feed.url}: {str(e)}"
+                            )
                             # Continue processing even if webhook registration fails
 
                     # Process entries (limited to 10)
@@ -187,9 +217,7 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                     for entry in entries:
                         try:
                             existing = Article.query.filter_by(
-                                url=entry.link,
-                                feed_id=feed.id
-                            ).first()
+                                url=entry.link, feed_id=feed.id).first()
 
                             if not existing:
                                 published = entry.get('published_parsed', None)
@@ -197,22 +225,21 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                                     published = datetime(*published[:6])
 
                                 article = Article(
-                                    title=entry.title[:200] if entry.title else '',  # Truncate to 200 chars
+                                    title=entry.title[:200] if entry.title else
+                                    '',  # Truncate to 200 chars
                                     url=entry.link,
                                     content=entry.get('description', ''),
                                     published_date=published,
-                                    feed_id=feed.id
-                                )
+                                    feed_id=feed.id)
 
                                 summary_result = generate_summary(
-                                    entry.title,
-                                    entry.get('description', ''),
-                                    user
-                                )
+                                    entry.title, entry.get('description', ''),
+                                    user)
 
                                 if summary_result:
                                     article.summary = summary_result['summary']
-                                    article.critique = summary_result.get('critique')
+                                    article.critique = summary_result.get(
+                                        'critique')
 
                                     # Process tags
                                     if 'tags' in summary_result:
@@ -222,8 +249,10 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
 
                                     # Process categories
                                     if 'categories' in summary_result:
-                                        for category_name in summary_result['categories']:
-                                            category = get_or_create_category(category_name)
+                                        for category_name in summary_result[
+                                                'categories']:
+                                            category = get_or_create_category(
+                                                category_name)
                                             article.categories.append(category)
 
                                     article.processed = True
@@ -231,7 +260,8 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
 
                                 db.session.add(article)
                                 db.session.commit()
-                                logger.info(f"Added new article: {article.title}")
+                                logger.info(
+                                    f"Added new article: {article.title}")
 
                         except Exception as e:
                             logger.error(f"Error processing entry: {str(e)}")
@@ -256,15 +286,20 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                         if feed.average_processing_time == 0:
                             feed.average_processing_time = processing_duration
                         else:
-                            feed.average_processing_time = (feed.average_processing_time + processing_duration) / 2
+                            feed.average_processing_time = (
+                                feed.average_processing_time +
+                                processing_duration) / 2
 
                         # Calculate health score (0-100) based on success rate
                         total_attempts = feed.success_count + feed.failure_count
                         if total_attempts > 0:
-                            feed.health_score = (feed.success_count / total_attempts) * 100
+                            feed.health_score = (feed.success_count /
+                                                 total_attempts) * 100
 
                         db.session.commit()
-                        logger.info(f"Feed {feed.url} marked as active (processed {processed_count} articles in {processing_duration:.2f}s)")
+                        logger.info(
+                            f"Feed {feed.url} marked as active (processed {processed_count} articles in {processing_duration:.2f}s)"
+                        )
 
                 except Exception as e:
                     logger.error(f"Error processing feed {feed_id}: {str(e)}")
@@ -282,27 +317,32 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                         # Update health score on failure
                         total_attempts = feed.success_count + feed.failure_count
                         if total_attempts > 0:
-                            feed.health_score = (feed.success_count / total_attempts) * 100
+                            feed.health_score = (feed.success_count /
+                                                 total_attempts) * 100
 
                         # Calculate next retry time with exponential backoff
-                        retry_delay = min(2 ** (feed.processing_attempts - 1) * 300, 3600)  # Max 1 hour delay
-                        next_retry = datetime.utcnow() + timedelta(seconds=retry_delay)
+                        retry_delay = min(2**(feed.processing_attempts - 1) *
+                                          300, 3600)  # Max 1 hour delay
+                        next_retry = datetime.utcnow() + timedelta(
+                            seconds=retry_delay)
 
                         if feed.processing_attempts >= 3:  # Max retries reached
                             feed.status = 'error'
-                            logger.warning(f"Feed {feed_id} has reached maximum retry attempts")
+                            logger.warning(
+                                f"Feed {feed_id} has reached maximum retry attempts"
+                            )
                         else:
                             # Schedule retry with exponential backoff
-                            scheduler.add_job(
-                                func=schedule_feed_processing,
-                                args=[feed_id],
-                                trigger='date',
-                                run_date=next_retry,
-                                id=f'retry_feed_{feed_id}',
-                                replace_existing=True,
-                                misfire_grace_time=300
+                            scheduler.add_job(func=schedule_feed_processing,
+                                              args=[feed_id],
+                                              trigger='date',
+                                              run_date=next_retry,
+                                              id=f'retry_feed_{feed_id}',
+                                              replace_existing=True,
+                                              misfire_grace_time=300)
+                            logger.info(
+                                f"Scheduled retry for feed {feed_id} at {next_retry}"
                             )
-                            logger.info(f"Scheduled retry for feed {feed_id} at {next_retry}")
 
                         db.session.commit()
                     continue
@@ -312,6 +352,7 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
         except Exception as e:
             logger.error(f"Error in process_feeds: {str(e)}")
             raise
+
 
 def schedule_feed_processing(feed_id):
     """Schedule immediate processing of a specific feed."""
@@ -336,9 +377,9 @@ def schedule_feed_processing(feed_id):
         next_run_time=datetime.now(),
         misfire_grace_time=900,  # 15 minutes grace time
         coalesce=True,
-        max_instances=1
-    )
+        max_instances=1)
     logger.info(f"Scheduled immediate processing for feed ID: {feed_id}")
+
 
 def schedule_tasks():
     """Schedule periodic tasks for feed processing and email digests."""
@@ -356,7 +397,8 @@ def schedule_tasks():
 
                 process_feeds()
                 duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"Completed feed processing in {duration:.2f} seconds")
+                logger.info(
+                    f"Completed feed processing in {duration:.2f} seconds")
                 return duration
             except Exception as e:
                 logger.error(f"Error in scheduled feed processing: {str(e)}")
@@ -423,34 +465,32 @@ def schedule_tasks():
 
             try:
                 if job_id in existing_jobs:
-                    logger.info(f"Updating existing job: {job_id} ({description})")
+                    logger.info(
+                        f"Updating existing job: {job_id} ({description})")
                     # Remove old job before adding new one
                     scheduler.remove_job(job_id)
 
                 logger.info(f"Scheduling job: {job_id} ({description})")
-                scheduler.add_job(
-                    **config,
-                    id=job_id,
-                    replace_existing=True
-                )
+                scheduler.add_job(**config, id=job_id, replace_existing=True)
             except Exception as e:
-                logger.error(f"Failed to schedule job {job_id} ({description}): {str(e)}")
+                logger.error(
+                    f"Failed to schedule job {job_id} ({description}): {str(e)}"
+                )
                 continue
 
         # Verify scheduled jobs
         jobs = scheduler.get_jobs()
         logger.info(f"Total scheduled jobs: {len(jobs)}")
         for job in jobs:
-            logger.info(
-                f"Job ID: {job.id}\n"
-                f"  Next run: {job.next_run_time}\n"
-                f"  Max instances: {job.max_instances}\n"
-                f"  Misfire grace time: {job.misfire_grace_time}"
-            )
+            logger.info(f"Job ID: {job.id}\n"
+                        f"  Next run: {job.next_run_time}\n"
+                        f"  Max instances: {job.max_instances}\n"
+                        f"  Misfire grace time: {job.misfire_grace_time}")
 
     except Exception as e:
         logger.error(f"Error scheduling tasks: {str(e)}")
         raise
+
 
 def send_daily_digest_with_context():
     with app.app_context():
@@ -464,6 +504,7 @@ def send_daily_digest_with_context():
             logger.error(f"Error sending daily digest: {str(e)}")
             raise
 
+
 def send_weekly_digest_with_context():
     with app.app_context():
         try:
@@ -476,16 +517,19 @@ def send_weekly_digest_with_context():
             logger.error(f"Error sending weekly digest: {str(e)}")
             raise
 
+
 def cleanup_expired_accounts_with_context():
     from app import app  # Import app here to avoid circular imports
-    
+
     with app.app_context():
         try:
             logger.info("Starting expired accounts cleanup...")
             start_time = datetime.now()
             cleanup_expired_accounts()
             duration = (datetime.now() - start_time).total_seconds()
-            logger.info(f"Completed expired accounts cleanup in {duration:.2f} seconds")
+            logger.info(
+                f"Completed expired accounts cleanup in {duration:.2f} seconds"
+            )
         except Exception as e:
             logger.error(f"Error cleaning up expired accounts: {str(e)}")
             raise

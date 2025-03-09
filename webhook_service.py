@@ -39,7 +39,10 @@ def register_webhook(feed_url, callback_url):
             "secret": os.environ.get("WEBHOOK_SECRET", str(uuid.uuid4()))
         }
 
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'tldr.express'
+        }
 
         response = requests.post(endpoint, data=form_data, headers=headers)
         response.raise_for_status()
