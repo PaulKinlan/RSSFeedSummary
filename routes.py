@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
 from models import User, Feed, Article, Tag, Category
@@ -488,26 +488,26 @@ def webhook_feed_updated():
     """Endpoint for receiving webhook notifications when a feed is updated."""
     if request.method == 'GET':
         """The WebHook will need to be verified."""
-
         mode = request.args.get('mode')
         token = request.args.get('token') or ""
 
         logger.info(f"Webhook verification called {mode} {token}")
 
         if mode == 'verify':
-            return token, 200
+            return make_response(token, 200)
 
-        return "Invalid mode", 500
+        return make_response("Invalid mode", 500)
 
     if request.method == 'POST':
         try:
             # Verify the webhook signature
             if not verify_webhook_signature(request.headers, request.data):
                 logger.warning("Invalid webhook signature")
-                return jsonify({
+                response = jsonify({
                     'status': 'error',
                     'message': 'Invalid signature'
-                }), 401
+                })
+                return make_response(response, 401)
 
             # Parse the request data
             data = request.json
@@ -517,35 +517,37 @@ def webhook_feed_updated():
             feed_url = data.get('topic')
             if not feed_url:
                 logger.warning("Webhook payload missing 'topic' field")
-                return jsonify({
+                response = jsonify({
                     'status': 'error',
                     'message': 'Missing topic'
-                }), 400
+                })
+                return make_response(response, 400)
 
             # Find the feed in the database
             feed = Feed.query.filter_by(url=feed_url).first()
             if not feed:
-                logger.warning(
-                    f"Received webhook for unknown feed: {feed_url}")
-                return jsonify({
+                logger.warning(f"Received webhook for unknown feed: {feed_url}")
+                response = jsonify({
                     'status': 'error',
                     'message': 'Unknown feed'
-                }), 404
+                })
+                return make_response(response, 404)
 
-            logger.info(
-                f"Processing webhook for feed: {feed.title} (ID: {feed.id})")
+            logger.info(f"Processing webhook for feed: {feed.title} (ID: {feed.id})")
 
             # Process the feed (with webhook_triggered=True to handle it differently if needed)
             process_feeds([feed], webhook_triggered=True)
 
-            return jsonify({
+            response = jsonify({
                 'status': 'success',
                 'message': 'Feed update queued for processing'
-            }), 200
+            })
+            return make_response(response, 200)
 
         except Exception as e:
             logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
-            return jsonify({
+            response = jsonify({
                 'status': 'error',
                 'message': 'Internal server error'
-            }), 500
+            })
+            return make_response(response, 500)
