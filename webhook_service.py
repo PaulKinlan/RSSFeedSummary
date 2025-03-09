@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlparse
 logger = logging.getLogger(__name__)
 
 # SuperDuperFeeder API base URL
-FEEDER_BASE_URL = "https://superduperfeeder.deno.dev/api"
+FEEDER_BASE_URL = "https://superduperfeeder.deno.dev/api/"
 
 def generate_callback_url(app_url):
     """Generate a callback URL for the webhook service."""
@@ -85,7 +85,7 @@ def unregister_webhook(webhook_id):
             
         logger.info(f"Unregistering webhook (ID: {webhook_id})")
         
-        endpoint = urljoin(FEEDER_BASE_URL, f"/api/webhook/{webhook_id}")
+        endpoint = urljoin(FEEDER_BASE_URL, f"webhook/{webhook_id}")
         
         response = requests.delete(endpoint)
         response.raise_for_status()
