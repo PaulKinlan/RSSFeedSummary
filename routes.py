@@ -252,6 +252,7 @@ def change_password():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # Get feeds but don't use status column 
     feeds = Feed.query.filter_by(user_id=current_user.id).all()
     recent_articles = Article.query.join(Feed).filter(
         Feed.user_id == current_user.id
@@ -293,11 +294,15 @@ def feed_health_dashboard():
     # Get all feeds for the current user
     feeds = Feed.query.filter_by(user_id=current_user.id).all()
     
-    # Calculate overall statistics
+    # Calculate overall statistics without relying on status
     total_feeds = len(feeds)
-    active_feeds = sum(1 for feed in feeds if feed.status == 'active')
-    error_feeds = sum(1 for feed in feeds if feed.status == 'error')
-    total_articles = sum(feed.total_articles_processed or 0 for feed in feeds)
+    
+    # For now, set these to 0 since we don't have status column
+    active_feeds = 0
+    error_feeds = 0
+    
+    # Calculate total articles if the attribute exists
+    total_articles = sum(getattr(feed, 'total_articles_processed', 0) or 0 for feed in feeds)
     
     return render_template('health_dashboard.html',
                          feeds=feeds,
