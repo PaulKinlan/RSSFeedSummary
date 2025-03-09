@@ -41,20 +41,20 @@ def register_webhook(feed_url, callback_url):
     try:
         logger.info(f"Registering webhook for feed: {feed_url}")
         
-        endpoint = urljoin(FEEDER_BASE_URL, "webhooks")
+        endpoint = urljoin(FEEDER_BASE_URL, "webhook")
         
-        # Using JSON payload as required by SuperDuperFeeder webhook API
-        payload = {
+        # Using form-encoded data as required by SuperDuperFeeder webhook API
+        form_data = {
             "feed_url": feed_url,
             "callback_url": callback_url,
             "secret": os.environ.get("WEBHOOK_SECRET", str(uuid.uuid4()))
         }
         
         headers = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/x-www-form-urlencoded'
         }
         
-        response = requests.post(endpoint, json=payload, headers=headers)
+        response = requests.post(endpoint, data=form_data, headers=headers)
         response.raise_for_status()
         
         webhook_data = response.json()
@@ -90,7 +90,7 @@ def unregister_webhook(webhook_id):
             
         logger.info(f"Unregistering webhook (ID: {webhook_id})")
         
-        endpoint = urljoin(FEEDER_BASE_URL, f"webhooks/{webhook_id}")
+        endpoint = urljoin(FEEDER_BASE_URL, f"webhook/{webhook_id}")
         
         response = requests.delete(endpoint)
         response.raise_for_status()
