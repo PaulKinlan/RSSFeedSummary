@@ -4,7 +4,7 @@ modules = ["python-3.11", "postgresql-16"]
 channel = "stable-24_05"
 
 [workflows]
-runButton = "Project"
+runButton = "Flask RSS Monitor"
 
 [[workflows.workflow]]
 name = "Project"
