@@ -477,6 +477,8 @@ def send_weekly_digest_with_context():
             raise
 
 def cleanup_expired_accounts_with_context():
+    from app import app  # Import app here to avoid circular imports
+    
     with app.app_context():
         try:
             logger.info("Starting expired accounts cleanup...")

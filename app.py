@@ -69,16 +69,19 @@ def cleanup_stale_jobs():
     """Clean up any stale or zombie jobs."""
     try:
         jobs = scheduler.get_jobs()
-        current_time = datetime.now()
-
+        
         for job in jobs:
             if hasattr(job, 'next_run_time') and job.next_run_time:
+                # Get current time with the same timezone as job's next_run_time
+                current_time = datetime.now(job.next_run_time.tzinfo)
+                
                 time_diff = current_time - job.next_run_time
                 if time_diff > timedelta(hours=1):
                     logger.warning(f"Found stale job {job.id}, removing and rescheduling")
                     try:
                         scheduler.remove_job(job.id)
                         if isinstance(job.trigger, (IntervalTrigger, CronTrigger)):
+                            # Use timezone-aware datetime for new job
                             scheduler.add_job(
                                 func=job.func,
                                 trigger=job.trigger,
@@ -86,7 +89,7 @@ def cleanup_stale_jobs():
                                 name=job.name,
                                 misfire_grace_time=1800,
                                 coalesce=True,
-                                next_run_time=datetime.now() + timedelta(minutes=5)
+                                next_run_time=datetime.now(job.next_run_time.tzinfo) + timedelta(minutes=5)
                             )
                     except Exception as e:
                         logger.error(f"Error cleaning up stale job {job.id}: {str(e)}")
