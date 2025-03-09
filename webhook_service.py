@@ -28,7 +28,7 @@ def generate_callback_url(app_url):
     return urljoin(app_url, "api/webhook")
 
 def register_webhook(feed_url, callback_url):
-    """Register a webhook for a feed with the SuperDuperFeeder service.
+    """Register a webhook for a feed with the SuperDuperFeeder webhook API.
     
     Args:
         feed_url: The URL of the RSS feed to monitor
@@ -41,15 +41,20 @@ def register_webhook(feed_url, callback_url):
     try:
         logger.info(f"Registering webhook for feed: {feed_url}")
         
-        endpoint = urljoin(FEEDER_BASE_URL, "webhook")
+        endpoint = urljoin(FEEDER_BASE_URL, "webhooks")
         
+        # Using JSON payload as required by SuperDuperFeeder webhook API
         payload = {
-            "topic": feed_url,
-            "callback": callback_url,
+            "feed_url": feed_url,
+            "callback_url": callback_url,
             "secret": os.environ.get("WEBHOOK_SECRET", str(uuid.uuid4()))
         }
         
-        response = requests.post(endpoint, json=payload)
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.post(endpoint, json=payload, headers=headers)
         response.raise_for_status()
         
         webhook_data = response.json()
@@ -70,7 +75,7 @@ def register_webhook(feed_url, callback_url):
         return None
 
 def unregister_webhook(webhook_id):
-    """Unregister a webhook with the SuperDuperFeeder service.
+    """Unregister a webhook with the SuperDuperFeeder webhook API.
     
     Args:
         webhook_id: The ID of the webhook to unregister
@@ -85,7 +90,7 @@ def unregister_webhook(webhook_id):
             
         logger.info(f"Unregistering webhook (ID: {webhook_id})")
         
-        endpoint = urljoin(FEEDER_BASE_URL, f"webhook/{webhook_id}")
+        endpoint = urljoin(FEEDER_BASE_URL, f"webhooks/{webhook_id}")
         
         response = requests.delete(endpoint)
         response.raise_for_status()

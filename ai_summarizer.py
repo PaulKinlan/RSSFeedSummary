@@ -7,7 +7,7 @@ from models import User, Tag, Category, db
 # Configure logging and Gemini API
 logger = logging.getLogger(__name__)
 genai.configure(api_key=os.environ['GOOGLE_GEMINI_API_KEY'])
-model = genai.GenerativeModel('gemini-2.0-pro-exp-0205')
+model = genai.GenerativeModel('gemini-2.0-flash')
 
 
 def get_or_create_tag(name: str) -> Optional[Tag]:
