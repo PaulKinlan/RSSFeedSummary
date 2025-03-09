@@ -81,15 +81,26 @@ def cleanup_expired_accounts():
             db.session.rollback()
             raise
 
-def process_feeds(feeds=None, max_retries=3):
-    """Process RSS feeds and generate summaries for new articles with retry mechanism."""
+def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
+    """Process RSS feeds and generate summaries for new articles with retry mechanism.
+    
+    Args:
+        feeds: Optional list of Feed objects to process. If None, all eligible feeds are processed.
+        max_retries: Maximum number of retry attempts for failed feeds.
+        webhook_triggered: Whether this processing was triggered by a webhook.
+    """
     from app import app, db
     import time
+    from webhook_service import register_webhook, generate_callback_url
 
     with app.app_context():
         try:
             start_time = time.time()
-            logger.info("Starting feed processing cycle")
+            logger.info(f"Starting feed processing cycle (webhook triggered: {webhook_triggered})")
+
+            # Application URL for webhook callbacks
+            app_url = os.environ.get('APPLICATION_URL', 'https://rss-monitor.replit.app')
+            callback_url = generate_callback_url(app_url)
 
             if feeds is None:
                 # Only get feeds for verified and unexpired accounts
@@ -111,7 +122,6 @@ def process_feeds(feeds=None, max_retries=3):
                     feed_ids = [feed.id for feed in feeds]
                     logger.info(f"Found {len(feeds)} feeds to process from verified and unexpired accounts")
                     logger.info(f"Feed IDs to process: {feed_ids}")
-                    logger.info("Starting feed processing cycle")
                 except Exception as e:
                     logger.error(f"Error querying feeds: {str(e)}")
                     raise
@@ -157,6 +167,18 @@ def process_feeds(feeds=None, max_retries=3):
                     user = User.query.get(feed.user_id)
                     if not user:
                         continue
+
+                    # Register webhook if not already registered and not webhook triggered
+                    if not webhook_triggered and not feed.webhook_id and callback_url:
+                        try:
+                            webhook_response = register_webhook(feed.url, callback_url)
+                            if webhook_response and 'id' in webhook_response:
+                                feed.webhook_id = webhook_response['id']
+                                db.session.commit()
+                                logger.info(f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}")
+                        except Exception as e:
+                            logger.error(f"Failed to register webhook for feed {feed.url}: {str(e)}")
+                            # Continue processing even if webhook registration fails
 
                     # Process entries (limited to 10)
                     entries = parsed_feed.entries[:10]
@@ -217,7 +239,7 @@ def process_feeds(feeds=None, max_retries=3):
 
                     # Update feed status and metrics
                     feed = Feed.query.get(feed_id)
-                    if feed and processed_count > 0:
+                    if feed:
                         end_time = time.time()
                         processing_duration = end_time - start_time
 

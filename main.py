@@ -4,6 +4,7 @@ from app import app, scheduler
 from feed_processor import schedule_tasks
 from flask_login import LoginManager
 from models import User
+from db_migration import run_migration
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -87,12 +88,28 @@ if __name__ == "__main__":
         
         logger.info("Starting RSS Feed Monitor application...")
         
+        # Run database migrations
+        with app.app_context():
+            logger.info("Running database migrations...")
+            migration_success = run_migration()
+            if not migration_success:
+                raise RuntimeError("Database migration failed")
+            logger.info("Database migrations completed successfully")
+        
         # Initialize scheduler before starting Flask
         with app.app_context():
             init_scheduler()
         
-        # Find an available port
-        port = find_free_port()
+        # Try port 5000 with fallback to 5001 to avoid conflicts
+        try:
+            import socket
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.bind(('0.0.0.0', 5000))
+            test_socket.close()
+            port = 5000
+        except OSError:
+            # Port 5000 is in use, fall back to 5001
+            port = 5001
         logger.info(f"Starting Flask application on port {port}")
         
         # Run the Flask application
