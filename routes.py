@@ -3,6 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
 from models import User, Feed, Article, Tag, Category
 from feed_processor import schedule_feed_processing, process_feeds
+from feed_processor import send_daily_digest_with_context, send_weekly_digest_with_context
 from datetime import datetime
 from sqlalchemy import or_, desc, nullslast
 from urllib.parse import urlparse
@@ -481,6 +482,40 @@ def summaries():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+
+@app.route('/admin/send-daily-digest')
+@login_required
+def admin_send_daily_digest():
+    if current_user.id != 1:  # Only allow the first user (admin) to trigger this
+        flash('Unauthorized')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        send_daily_digest_with_context()
+        flash('Daily digest sent successfully')
+    except Exception as e:
+        logger.error(f"Error sending daily digest: {str(e)}")
+        flash(f'Error sending daily digest: {str(e)}')
+    
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/admin/send-weekly-digest')
+@login_required
+def admin_send_weekly_digest():
+    if current_user.id != 1:  # Only allow the first user (admin) to trigger this
+        flash('Unauthorized')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        send_weekly_digest_with_context()
+        flash('Weekly digest sent successfully')
+    except Exception as e:
+        logger.error(f"Error sending weekly digest: {str(e)}")
+        flash(f'Error sending weekly digest: {str(e)}')
+    
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/api/webhook', methods=['POST', 'GET'])
