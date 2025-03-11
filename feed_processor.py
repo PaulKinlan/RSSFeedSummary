@@ -18,80 +18,79 @@ logger = logging.getLogger(__name__)
 
 def cleanup_expired_accounts():
     """Delete unverified accounts with expired verification tokens."""
-    from app import app, db
+    from app import db
     from models import User, Feed, Article
     from datetime import datetime
     import logging
 
     logger = logging.getLogger(__name__)
 
-    with app.app_context():
-        try:
-            # Find unverified accounts with expired tokens
-            expired_accounts = User.query.filter(
-                User.email_verified == False,
-                User.verification_token.is_not(None),
-                User.verification_token_expires <= datetime.utcnow()).all()
+    try:
+        # Find unverified accounts with expired tokens
+        expired_accounts = User.query.filter(
+            User.email_verified == False,
+            User.verification_token.is_not(None),
+            User.verification_token_expires <= datetime.utcnow()).all()
 
-            if not expired_accounts:
-                logger.info("No expired unverified accounts found")
-                return
+        if not expired_accounts:
+            logger.info("No expired unverified accounts found")
+            return
 
-            logger.info(
-                f"Found {len(expired_accounts)} expired unverified accounts to be cleaned up"
-            )
-            logger.info("Starting cleanup process...")
-            deleted_count = 0
+        logger.info(
+            f"Found {len(expired_accounts)} expired unverified accounts to be cleaned up"
+        )
+        logger.info("Starting cleanup process...")
+        deleted_count = 0
 
-            for user in expired_accounts:
-                try:
+        for user in expired_accounts:
+            try:
+                logger.info(
+                    f"Processing expired account - User ID: {user.id}, Email: {user.email}"
+                )
+
+                # Count associated data for logging
+                feeds = Feed.query.filter_by(user_id=user.id).all()
+                feed_count = len(feeds)
+                article_count = 0
+
+                # Delete all associated articles first
+                for feed in feeds:
+                    count = Article.query.filter_by(
+                        feed_id=feed.id).delete()
+                    article_count += count
                     logger.info(
-                        f"Processing expired account - User ID: {user.id}, Email: {user.email}"
-                    )
+                        f"Deleted {count} articles for feed ID: {feed.id}")
 
-                    # Count associated data for logging
-                    feeds = Feed.query.filter_by(user_id=user.id).all()
-                    feed_count = len(feeds)
-                    article_count = 0
+                # Then delete all feeds
+                Feed.query.filter_by(user_id=user.id).delete()
+                logger.info(
+                    f"Deleted {feed_count} feeds for user ID: {user.id}")
 
-                    # Delete all associated articles first
-                    for feed in feeds:
-                        count = Article.query.filter_by(
-                            feed_id=feed.id).delete()
-                        article_count += count
-                        logger.info(
-                            f"Deleted {count} articles for feed ID: {feed.id}")
+                # Finally delete the user
+                db.session.delete(user)
+                deleted_count += 1
 
-                    # Then delete all feeds
-                    Feed.query.filter_by(user_id=user.id).delete()
-                    logger.info(
-                        f"Deleted {feed_count} feeds for user ID: {user.id}")
+                # Commit after each successful user deletion
+                db.session.commit()
+                logger.info(
+                    f"Successfully deleted expired unverified user ID: {user.id} with {feed_count} feeds and {article_count} articles"
+                )
 
-                    # Finally delete the user
-                    db.session.delete(user)
-                    deleted_count += 1
+            except Exception as e:
+                logger.error(
+                    f"Error deleting expired account {user.id}: {str(e)}")
+                db.session.rollback()
+                continue
 
-                    # Commit after each successful user deletion
-                    db.session.commit()
-                    logger.info(
-                        f"Successfully deleted expired unverified user ID: {user.id} with {feed_count} feeds and {article_count} articles"
-                    )
+        logger.info(
+            f"Cleanup completed: Deleted {deleted_count} expired unverified accounts"
+        )
+        logger.info(f"Cleanup completed at: {datetime.utcnow()}")
 
-                except Exception as e:
-                    logger.error(
-                        f"Error deleting expired account {user.id}: {str(e)}")
-                    db.session.rollback()
-                    continue
-
-            logger.info(
-                f"Cleanup completed: Deleted {deleted_count} expired unverified accounts"
-            )
-            logger.info(f"Cleanup completed at: {datetime.utcnow()}")
-
-        except Exception as e:
-            logger.error(f"Error in cleanup_expired_accounts: {str(e)}")
-            db.session.rollback()
-            raise
+    except Exception as e:
+        logger.error(f"Error in cleanup_expired_accounts: {str(e)}")
+        db.session.rollback()
+        raise
 
 
 def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
@@ -493,6 +492,8 @@ def schedule_tasks():
 
 
 def send_daily_digest_with_context():
+    from app import app  # Import app inside function to avoid circular import issues
+    
     with app.app_context():
         try:
             logger.info("Starting daily digest email send...")
@@ -506,6 +507,8 @@ def send_daily_digest_with_context():
 
 
 def send_weekly_digest_with_context():
+    from app import app  # Import app inside function to avoid circular import issues
+    
     with app.app_context():
         try:
             logger.info("Starting weekly digest email send...")
