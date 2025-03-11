@@ -117,6 +117,9 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
             callback_url = generate_callback_url(app_url)
 
             if feeds is None:
+                # Get feeds that haven't been checked in the last hour
+                one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+                
                 # Only get feeds for verified and unexpired accounts
                 query = Feed.query.join(User).filter(
                     User.email_verified == True,  # Only verified users
@@ -131,7 +134,12 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                             < max_retries,  # Still within retry limit
                             Feed.status ==
                             'active'  # Or currently active feeds
-                        )).order_by(Feed.last_checked.asc().nullsfirst())
+                        ),
+                        or_(
+                            Feed.last_checked == None,  # Never checked before
+                            Feed.last_checked < one_hour_ago  # Or not checked in the last hour
+                        )
+                    ).order_by(Feed.last_checked.asc().nullsfirst())
 
                 try:
                     feeds = query.all()
@@ -146,14 +154,18 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
             else:
                 # For specific feeds, still check if they belong to valid accounts
                 feed_ids = []
+                one_hour_ago = datetime.utcnow() - timedelta(hours=1)
                 for feed in feeds:
                     user = User.query.get(feed.user_id)
+                    # Check if feed hasn't been checked in the last hour
+                    can_process = (feed.last_checked is None or feed.last_checked < one_hour_ago)
+                    
                     if user and user.email_verified and (
                             user.verification_token is None
                             or user.verification_token_expires
                             > datetime.utcnow()) and (
                                 feed.processing_attempts < max_retries
-                                or feed.status == 'active'):
+                                or feed.status == 'active') and can_process:
                         feed_ids.append(feed.id)
 
             for feed_id in feed_ids:
@@ -354,14 +366,34 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
 
 
 def schedule_feed_processing(feed_id):
-    """Schedule immediate processing of a specific feed."""
-    from app import app
+    """Schedule processing of a specific feed, respecting the hourly limit."""
+    from app import app, db
 
     def process_with_context():
         with app.app_context():
+            # Check if feed can be processed (hasn't been checked in the last hour)
             feed = Feed.query.get(feed_id)
             if feed:
-                process_feeds([feed])
+                one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+                can_process = (feed.last_checked is None or feed.last_checked < one_hour_ago)
+                
+                if can_process:
+                    logger.info(f"Processing feed ID {feed_id} as scheduled")
+                    process_feeds([feed])
+                else:
+                    next_available = feed.last_checked + timedelta(hours=1)
+                    time_until = (next_available - datetime.utcnow()).total_seconds() / 60
+                    logger.info(f"Feed ID {feed_id} was checked recently. Next available in {time_until:.1f} minutes")
+                    
+                    # Reschedule for the next available time
+                    scheduler.add_job(
+                        func=schedule_feed_processing,
+                        args=[feed_id],
+                        trigger='date',
+                        run_date=next_available,
+                        id=f'process_feed_{feed_id}',
+                        replace_existing=True,
+                        misfire_grace_time=900)
 
     job_id = f'process_feed_{feed_id}'
     try:
@@ -369,7 +401,7 @@ def schedule_feed_processing(feed_id):
     except:
         pass
 
-    # Add new job with improved settings
+    # Add new job
     scheduler.add_job(
         func=process_with_context,
         id=job_id,
@@ -377,7 +409,7 @@ def schedule_feed_processing(feed_id):
         misfire_grace_time=900,  # 15 minutes grace time
         coalesce=True,
         max_instances=1)
-    logger.info(f"Scheduled immediate processing for feed ID: {feed_id}")
+    logger.info(f"Scheduled processing for feed ID: {feed_id}")
 
 
 def schedule_tasks():
