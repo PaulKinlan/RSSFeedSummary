@@ -204,17 +204,22 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                     if not user:
                         continue
 
-                    # Register webhook if not already registered and not webhook triggered
-                    if not webhook_triggered and not feed.webhook_id and callback_url:
+                    # Register webhook only if not already registered and not webhook triggered
+                    if not webhook_triggered and callback_url:
                         try:
-                            webhook_response = register_webhook(
-                                feed.url, callback_url)
-                            if webhook_response and 'id' in webhook_response:
-                                feed.webhook_id = webhook_response['id']
-                                db.session.commit()
+                            if feed.webhook_id:
                                 logger.info(
-                                    f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}"
+                                    f"Webhook already registered for feed {feed.url} with ID: {feed.webhook_id}"
                                 )
+                            else:
+                                webhook_response = register_webhook(
+                                    feed.url, callback_url)
+                                if webhook_response and 'id' in webhook_response:
+                                    feed.webhook_id = webhook_response['id']
+                                    db.session.commit()
+                                    logger.info(
+                                        f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}"
+                                    )
                         except Exception as e:
                             logger.error(
                                 f"Failed to register webhook for feed {feed.url}: {str(e)}"
