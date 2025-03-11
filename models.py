@@ -11,6 +11,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     feeds = db.relationship('Feed', backref='user', lazy=True)
     
+    # User type field ('user' or 'admin')
+    type = db.Column(db.String(20), default='user', nullable=False)
+    
     # Email verification fields
     email_verified = db.Column(db.Boolean, default=False)
     verification_token = db.Column(db.String(100), unique=True)

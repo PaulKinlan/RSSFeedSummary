@@ -487,7 +487,7 @@ def logout():
 @app.route('/admin/send-daily-digest')
 @login_required
 def admin_send_daily_digest():
-    if current_user.id != 1:  # Only allow the first user (admin) to trigger this
+    if current_user.type != 'admin':  # Only allow users with admin type to trigger this
         flash('Unauthorized')
         return redirect(url_for('dashboard'))
     
@@ -504,7 +504,7 @@ def admin_send_daily_digest():
 @app.route('/admin/send-weekly-digest')
 @login_required
 def admin_send_weekly_digest():
-    if current_user.id != 1:  # Only allow the first user (admin) to trigger this
+    if current_user.type != 'admin':  # Only allow users with admin type to trigger this
         flash('Unauthorized')
         return redirect(url_for('dashboard'))
     
