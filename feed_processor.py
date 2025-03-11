@@ -214,8 +214,8 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                             else:
                                 webhook_response = register_webhook(
                                     feed.url, callback_url)
-                                if webhook_response and 'id' in webhook_response:
-                                    feed.webhook_id = webhook_response['id']
+                                if webhook_response and 'subscriptionId' in webhook_response:
+                                    feed.webhook_id = webhook_response['subscriptionId']
                                     db.session.commit()
                                     logger.info(
                                         f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}"
