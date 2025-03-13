@@ -212,14 +212,58 @@ def process_feeds(feeds=None, max_retries=3, webhook_triggered=False):
                                     f"Webhook already registered for feed {feed.url} with ID: {feed.webhook_id}"
                                 )
                             else:
-                                webhook_response = register_webhook(
-                                    feed.url, callback_url)
-                                if webhook_response and 'subscriptionId' in webhook_response:
-                                    feed.webhook_id = webhook_response['subscriptionId']
-                                    db.session.commit()
-                                    logger.info(
-                                        f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}"
-                                    )
+                                # First, explicitly rollback any pending transactions to avoid cascading errors
+                                db.session.rollback()
+                                
+                                # Check if this webhook ID already exists for another feed with the same URL
+                                existing_feed = Feed.query.filter(
+                                    Feed.webhook_id.isnot(None),
+                                    Feed.id != feed.id,
+                                    Feed.url == feed.url
+                                ).first()
+                                
+                                if existing_feed:
+                                    try:
+                                        # Reuse the existing webhook ID for the same feed URL
+                                        logger.info(f"Reusing existing webhook ID {existing_feed.webhook_id} for feed URL {feed.url}")
+                                        feed.webhook_id = existing_feed.webhook_id
+                                        db.session.commit()
+                                    except Exception as commit_error:
+                                        logger.error(f"Failed to set webhook ID (reuse): {str(commit_error)}")
+                                        db.session.rollback()
+                                        # Skip webhook registration for this feed to avoid further errors
+                                        continue
+                                else:
+                                    try:
+                                        # Register a new webhook - first check if any other feed with same URL has webhook
+                                        existing_webhook = db.session.query(Feed.webhook_id).filter(
+                                            Feed.webhook_id.isnot(None),
+                                            Feed.url == feed.url
+                                        ).first()
+                                        
+                                        if existing_webhook:
+                                            # Another check to see if since our earlier check, a webhook was registered
+                                            feed.webhook_id = existing_webhook[0]
+                                            db.session.commit()
+                                            logger.info(f"Using existing webhook ID {feed.webhook_id} for feed URL {feed.url}")
+                                        else:
+                                            # Register a new webhook
+                                            webhook_response = register_webhook(feed.url, callback_url)
+                                            if webhook_response and 'subscriptionId' in webhook_response:
+                                                feed.webhook_id = webhook_response['subscriptionId']
+                                                try:
+                                                    db.session.commit()
+                                                    logger.info(
+                                                        f"Registered webhook for feed {feed.url} with ID: {feed.webhook_id}"
+                                                    )
+                                                except Exception as commit_error:
+                                                    logger.error(f"Failed to save webhook ID: {str(commit_error)}")
+                                                    db.session.rollback()
+                                                    # Don't set webhook_id to avoid future duplicate key errors
+                                                    feed.webhook_id = None
+                                    except Exception as webhook_error:
+                                        logger.error(f"Error during webhook handling: {str(webhook_error)}")
+                                        db.session.rollback()
                         except Exception as e:
                             logger.error(
                                 f"Failed to register webhook for feed {feed.url}: {str(e)}"

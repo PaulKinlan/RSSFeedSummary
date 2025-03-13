@@ -13,7 +13,9 @@ CALLBACK_URL = "https://tldr.express/api/webhook"
 
 def generate_callback_url(app_url):
     """Generate a callback URL for the webhook service."""
-    return urljoin(CALLBACK_URL, "/api/webhook")
+    # Use the app_url parameter instead of hardcoded CALLBACK_URL
+    # to ensure we're generating a proper URL based on the current deployment
+    return urljoin(app_url, "/api/webhook")
 
 
 def register_webhook(feed_url, callback_url):
