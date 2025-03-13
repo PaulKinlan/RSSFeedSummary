@@ -53,7 +53,7 @@ class Feed(db.Model):
     processing_attempts = db.Column(db.Integer, default=0)
     
     # Webhook processing
-    webhook_id = db.Column(db.String(100), unique=True)  # ID returned from the webhook service
+    webhook_id = db.Column(db.String(100))  # ID returned from the webhook service
     last_successful_process = db.Column(db.DateTime)
     last_failed_process = db.Column(db.DateTime)
     success_count = db.Column(db.Integer, default=0)

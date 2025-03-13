@@ -5,6 +5,7 @@ from feed_processor import schedule_tasks
 from flask_login import LoginManager
 from models import User
 from db_migration import run_migration
+from db_migration_webhook import run_webhook_id_migration
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -94,6 +95,13 @@ if __name__ == "__main__":
             migration_success = run_migration()
             if not migration_success:
                 raise RuntimeError("Database migration failed")
+                
+            # Run webhook ID constraint migration
+            logger.info("Running webhook ID constraint migration...")
+            webhook_migration_success = run_webhook_id_migration()
+            if not webhook_migration_success:
+                raise RuntimeError("Webhook ID constraint migration failed")
+                
             logger.info("Database migrations completed successfully")
         
         # Initialize scheduler before starting Flask
